@@ -1,0 +1,60 @@
+{
+  "model": "1 click/sec for first 100 seconds, then idle; each second buy best affordable marginal SPS/cost, max20 buys/sec; no offline; illustrative, not optimal or human playtest",
+  "milestones": [
+    {
+      "id": "craftsman",
+      "count": 1,
+      "seconds": 10
+    },
+    {
+      "id": "conveyor_sushi",
+      "count": 1,
+      "seconds": 76
+    },
+    {
+      "id": "auto_sushi_machine",
+      "count": 1,
+      "seconds": 167
+    },
+    {
+      "id": "marine_food_plant",
+      "count": 1,
+      "seconds": 321
+    },
+    {
+      "id": "sushi_ocean_mining",
+      "count": 1,
+      "seconds": 577
+    },
+    {
+      "id": "fusion_sushi_converter",
+      "count": 1,
+      "seconds": 1085
+    },
+    {
+      "id": "luna_sea",
+      "count": 1,
+      "seconds": 1891
+    },
+    {
+      "id": "freshness_freezer",
+      "count": 1,
+      "seconds": 3018
+    },
+    {
+      "id": "global_freshness_sync",
+      "count": 1,
+      "seconds": 4509
+    },
+    {
+      "id": "global_freshness_sync",
+      "count": 2,
+      "seconds": 4622
+    }
+  ],
+  "target": {
+    "sync1Seconds": 9600,
+    "sync2Seconds": 13200
+  },
+  "conclusion": "Economy requires separate long-session pacing calibration; ending not implemented."
+}

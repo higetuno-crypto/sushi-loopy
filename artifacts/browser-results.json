@@ -1,0 +1,57 @@
+{
+  "results": [
+    {
+      "name": "initial render, optimized image, no autoplay, desktop overflow",
+      "status": "PASS"
+    },
+    {
+      "name": "10 taps -> real facility purchase -> achievement and v2 checkpoint",
+      "status": "PASS"
+    },
+    {
+      "name": "100 click achievement UI and no duplicates",
+      "status": "PASS"
+    },
+    {
+      "name": "Upgrade purchase via UI and doubled tap gain",
+      "status": "PASS"
+    },
+    {
+      "name": "audio opt-in, running context, volume control and mute",
+      "status": "PASS"
+    },
+    {
+      "name": "Auto Save -> browser reload retains achievements/upgrades",
+      "status": "PASS"
+    },
+    {
+      "name": "Save Code UI exports and confirmed import restores exact click count",
+      "status": "PASS"
+    },
+    {
+      "name": "Checkpoint restore UI retains first purchase, rolls back all added fields",
+      "status": "PASS"
+    },
+    {
+      "name": "progression unlocks new facilities, News publishes and persists history",
+      "status": "PASS"
+    },
+    {
+      "name": "iPhone 12 layout (390 x 844), touch-sized controls and reduced motion",
+      "status": "PASS"
+    },
+    {
+      "name": "fresh browser v1 migration + offline production + v1 backup",
+      "status": "PASS"
+    },
+    {
+      "name": "invalid browser save protected and warning visible",
+      "status": "PASS"
+    },
+    {
+      "name": "no browser runtime/console errors",
+      "status": "PASS"
+    }
+  ],
+  "errors": []
+}
