@@ -10,7 +10,7 @@ export const NEWS: readonly NewsDefinition[] = [
   { id: 'machine', text: '自動握り器が稼働。「おいしい」の定義を、学習しています。', condition: { kind: 'facility', id: 'auto_sushi_machine', count: 1 }, priority: 30, category: '産業だより' },
   { id: 'plant', text: '海洋食材プラント、豊漁を宣言。海の同意は確認中です。', condition: { kind: 'facility', id: 'marine_food_plant', count: 1 }, priority: 40, category: '産業だより' },
   { id: 'mining', text: '海底から古いお品書きを発見。まだ建てていない施設の名前がある。', condition: { kind: 'facility', id: 'sushi_ocean_mining', count: 1 }, priority: 50, category: '観測記録' },
-  { id: 'fusion', text: '核融合による握りを開始。太陽の匂いは、酢飯に似ていた。', condition: { kind: 'facility', id: 'fusion_sushi_converter', count: 1 }, priority: 60, category: '観測記録' },
+  { id: 'fusion', text: '寿司融合発電、点灯。となりの店の看板まで光った。', condition: { kind: 'facility', id: 'fusion_sushi_converter', count: 1 }, priority: 60, category: '観測記録' },
   { id: 'moon', text: '月面に海を確認。地球から持ち出した記録はありません。', condition: { kind: 'facility', id: 'luna_sea', count: 1 }, priority: 70, category: '観測記録' },
   { id: 'freezer', text: '鮮度凍結に成功。賞味期限より先に、時計が止まりました。', condition: { kind: 'facility', id: 'freshness_freezer', count: 1 }, priority: 80, category: '観測記録' },
   { id: 'sync', text: '世界鮮度同期、完了。すべての食卓から、同じ「いただきます」。', condition: { kind: 'facility', id: 'global_freshness_sync', count: 1 }, priority: 90, category: '観測記録' },

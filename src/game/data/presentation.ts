@@ -7,7 +7,7 @@ export const FACILITY_ART: Record<FacilityId, { icon: string; note: string }> = 
   auto_sushi_machine: { icon: '⚙', note: '休まない、小さな手。' },
   marine_food_plant: { icon: '🌊', note: '海ごと、いただきます。' },
   sushi_ocean_mining: { icon: '⚓', note: '深海の、さらに下へ。' },
-  fusion_sushi_converter: { icon: '☀', note: '太陽ひとつぶんの熱。' },
+  fusion_sushi_converter: { icon: '🍣', note: '寿司と寿司で、街にあかりを。' },
   luna_sea: { icon: '☾', note: '月にも、海があった。' },
   freshness_freezer: { icon: '❄', note: '時間より、鮮度。' },
   global_freshness_sync: { icon: '◎', note: 'いただきますを、同期する。' },

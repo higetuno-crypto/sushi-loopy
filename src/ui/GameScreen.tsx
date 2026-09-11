@@ -14,6 +14,8 @@ import { selectTotalSushiPerSecond } from '../game/state/selectors';
 import { DebugTools } from './DebugTools';
 import { FACILITIES } from '../game/data/facilities';
 import { formatNumber } from './format';
+import { SushiBox } from './SushiBox';
+import { MotionControl } from './MotionControl';
 
 function Counter() {
   const sushi = useGameStore(state => state.sushi);
@@ -41,7 +43,8 @@ const CounterStage = memo(function CounterStage() {
     <div className="stage-heading"><span>THE SUSHI COUNTER</span><span className="open-stamp">営業中</span></div>
     <Counter />
     <SushiButton onTap={tap} perClick={perClick} />
-    <div className="conveyor-strip" aria-hidden="true"><div>{Array.from({length:12}, (_,i) => <span key={i}>{['🍣','🍙','🍥','🍣'][i%4]}</span>)}</div></div>
+    <SushiBox />
+    <MotionControl />
     <NextGoal />
     <SoundControl />
     <DebugTools />

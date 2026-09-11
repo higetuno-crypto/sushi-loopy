@@ -38,7 +38,7 @@ export const FACILITIES = [
   },
   {
     id: "fusion_sushi_converter",
-    displayName: "核融合",
+    displayName: "寿司融合発電",
     basePrice: 1_000_000,
     baseProduction: 30_000,
     growthRate: 1.15,

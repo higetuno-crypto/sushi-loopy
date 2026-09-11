@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "browser": "Edge mobile emulation; physical iPhone not tested",
+  "results": [
+    "touch tap counts once",
+    "hold: immediate + 250ms repeats, release stops, no duplicate click",
+    "keyboard activation retained",
+    "blur cancels hold",
+    "purchase feedback and owned facilities; conveyor starts only after opening",
+    "mobile dock, selection protection, reduced motion, no overflow or runtime errors"
+  ],
+  "initialBeltTransform": "matrix(1, 0, 0, 1, -0.20708, 0)"
+}

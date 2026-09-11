@@ -75,6 +75,11 @@ export function playTap() {
   playNote({ note: pitches[useGameStore.getState().totalClicks % pitches.length], duration: 0.12, gain: 0.12, wave: 'sine' }, context.currentTime);
 }
 
+export function playPurchase() {
+  if (!enabled || !context || context.state !== 'running') return;
+  [72, 76, 79, 84].forEach((note, index) => playNote({ note, duration: 0.24, gain: 0.2, wave: 'sine' }, context!.currentTime + index * 0.075));
+}
+
 export function bindAudioVisibility(): () => void {
   const handler = () => {
     if (!context || !enabled) return;
