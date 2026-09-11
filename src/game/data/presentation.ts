@@ -14,6 +14,6 @@ export const FACILITY_ART: Record<FacilityId, { icon: string; note: string }> = 
 };
 
 export const ASSETS = {
-  sushi: '/assets/salmon-hero-v1.webp',
-  sushiSmall: '/assets/salmon-hero-v1-small.webp',
+  sushi: `${import.meta.env.BASE_URL}assets/salmon-hero-v1.webp`,
+  sushiSmall: `${import.meta.env.BASE_URL}assets/salmon-hero-v1-small.webp`,
 };

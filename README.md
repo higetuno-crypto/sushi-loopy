@@ -6,6 +6,16 @@ STEP 3: 実績10件・強化5件・新聞15件・Save v2・成長する音楽・
 
 ## 起動・検証
 
+### GitHub Pages
+
+公開予定URL: https://higetuno-crypto.github.io/sushi-loopy/
+
+GitHubのSettings → PagesでSourceをGitHub Actionsに設定する。現在の非公開リポジトリではプランの制限でPagesを利用できないため、公開リポジトリへの変更または対応プランへの変更が必要。
+
+設定後はmainへのpushでlint・テスト・ビルドが実行され、成功した版を自動公開する。Actionsの「Deploy Sushi Loopy to GitHub Pages」から手動実行も可能。CIでは配信パスを `/sushi-loopy/` にし、ローカル開発では `/` を維持する。
+
+公開サイトのセーブは端末・ブラウザごとの保存。ローカル版から移動する場合はSave Codeを使う。端末間の自動同期はない。
+
 ### 別のPC（PC-A / Codex）で開発する
 
 GitHub: https://github.com/higetuno-crypto/sushi-loopy （非公開）。アクセス可能なGitHubアカウントで認証し、Node.js 24 LTSを用意する。
