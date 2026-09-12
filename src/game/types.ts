@@ -28,7 +28,11 @@ export interface FacilityDefinition {
   growthRate: number;
 }
 
+export type EndingPhase = 'playing' | 'collapse' | 'cleared';
+
 export interface GameState {
+  endingPhase: EndingPhase;
+  collapseElapsedMs: number;
   /**
    * 現在所持しているSUSHI。
    */

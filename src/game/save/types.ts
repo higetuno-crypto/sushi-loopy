@@ -1,6 +1,6 @@
 import type { FacilityId } from "../types";
 
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
 /**
  * Save schema v1 で存在していた施設 ID。
@@ -77,4 +77,13 @@ export interface SaveDataV2 {
   game: SavedGameStateV2;
 }
 
-export type SaveData = SaveDataV2;
+export interface SavedGameStateV3 extends SavedGameStateV2 {
+  endingPhase: import('../types').EndingPhase;
+  collapseElapsedMs: number;
+}
+export interface SaveDataV3 {
+  schemaVersion: 3;
+  savedAtMs: number;
+  game: SavedGameStateV3;
+}
+export type SaveData = SaveDataV3;

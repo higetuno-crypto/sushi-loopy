@@ -29,6 +29,8 @@ export function createSaveSnapshot(
     schemaVersion: CURRENT_SCHEMA_VERSION,
 
     game: {
+      endingPhase: state.endingPhase,
+      collapseElapsedMs: state.collapseElapsedMs,
       sushi: state.sushi,
 
       facilityCounts: {

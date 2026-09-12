@@ -2,7 +2,7 @@ import {
     CURRENT_SCHEMA_VERSION,
     type SaveData,
   } from "./types";
-  import { parseSaveDataV1, parseCurrentSaveData } from "./validation";
+  import { parseSaveDataV1, parseSaveDataV2, parseCurrentSaveData } from "./validation";
   import { createInitialGameState } from '../state/initialState';
   import { resolveAchievements } from '../logic/progression';
   
@@ -75,13 +75,19 @@ import {
       case 1: {
         const old = parseSaveDataV1(value);
         if (!old) return null;
-        return { schemaVersion: 2, savedAtMs: old.savedAtMs,
+        return { schemaVersion: 3, savedAtMs: old.savedAtMs,
           game: resolveAchievements({ ...createInitialGameState(), ...old.game,
             facilityCounts: { ...old.game.facilityCounts }, totalSushiEarned: old.game.sushi,
           }),
         };
       }
-      case 2: return parseCurrentSaveData(value);
+      case 2: {
+        const old = parseSaveDataV2(value);
+        if (!old) return null;
+        return { schemaVersion: 3, savedAtMs: old.savedAtMs,
+          game: { ...old.game, endingPhase: 'playing', collapseElapsedMs: 0 } };
+      }
+      case 3: return parseCurrentSaveData(value);
   
       default: {
         return null;

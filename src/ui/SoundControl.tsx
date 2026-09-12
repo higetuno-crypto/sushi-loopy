@@ -3,6 +3,8 @@ import { bindAudioVisibility, getMusicLayers, setAudioEnabled, setAudioVolume } 
 import { useGameStore } from '../game/state/store';
 
 export function SoundControl() {
+  const phase = useGameStore(state => state.endingPhase);
+  const silent = useGameStore(state => state.collapseElapsedMs >= 20_000);
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +22,7 @@ export function SoundControl() {
       <span aria-hidden="true">{on ? '♫' : '♪'}</span> {on ? '音楽 ON' : '音をつける'}
     </button>
     {on && <label className="volume-control">音量<input aria-label="音量" type="range" min="0" max="100" value={volume} onChange={e => { setVolume(Number(e.target.value)); setAudioVolume(Number(e.target.value)/100); }} /></label>}
-    <small>お店と育つ音楽 <span>{'●'.repeat(layers)}{'○'.repeat(5-layers)}</span></small>
+    <small>{phase === 'playing' ? <>お店と育つ音楽 <span>{'●'.repeat(layers)}{'○'.repeat(5-layers)}</span></> : silent ? '静かなカウンター' : '世界の音が、ほどけていく'}</small>
     {error && <small role="alert">{error}</small>}
   </div>;
 }

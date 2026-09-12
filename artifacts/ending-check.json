@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "device": "desktop",
+      "result": "PASS",
+      "checks": [
+        "v2 migration",
+        "real final purchase",
+        "story timing",
+        "reload in collapse",
+        "one final click",
+        "immediate clear persistence",
+        "clear reload",
+        "no overflow",
+        "reduced motion (mobile)"
+      ]
+    },
+    {
+      "device": "mobile",
+      "result": "PASS",
+      "checks": [
+        "v2 migration",
+        "real final purchase",
+        "story timing",
+        "reload in collapse",
+        "one final click",
+        "immediate clear persistence",
+        "clear reload",
+        "no overflow",
+        "reduced motion (mobile)"
+      ]
+    }
+  ],
+  "errors": []
+}

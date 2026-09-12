@@ -1,3 +1,4 @@
+import { collapseSceneIndex } from '../logic/loop';
 import { useGameStore } from '../state/store';
 import { BPM, notesAtStep, type ScoreNote } from './score';
 import { createVoice } from './voice';
@@ -30,7 +31,15 @@ function schedule() {
   // No burst of catch-up notes after a stalled/background tab.
   if (nextTime < context.currentTime) nextTime = context.currentTime + 0.03;
   while (nextTime < context.currentTime + 0.2) {
-    for (const note of notesAtStep(step, getMusicLayers())) playNote(note, nextTime);
+    const state = useGameStore.getState();
+    const scene = collapseSceneIndex(state.collapseElapsedMs);
+    if (state.endingPhase === 'playing') {
+      for (const note of notesAtStep(step, getMusicLayers())) playNote(note, nextTime);
+    } else if (state.endingPhase === 'collapse' && scene < 2) {
+      // Familiar instruments thin out and fall in pitch, then leave room for silence.
+      for (const note of notesAtStep(step, scene === 0 ? 3 : 1))
+        playNote({ ...note, note: note.note - (scene === 0 ? 0 : 12), gain: note.gain * 0.45 }, nextTime);
+    }
     step += 1; nextTime += 60 / BPM / 2;
   }
 }

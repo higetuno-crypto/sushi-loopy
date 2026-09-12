@@ -8,30 +8,30 @@
   "metrics": {
     "width": 390,
     "scrollWidth": 390,
-    "domNodes": 188,
+    "domNodes": 206,
     "resources": [
       {
-        "name": "/assets/index-CII0aw2h.js",
-        "bytes": 73648,
-        "duration": 154.60000000149012
+        "name": "/assets/index-BITkvRrR.js",
+        "bytes": 77414,
+        "duration": 43.5
       },
       {
-        "name": "/assets/index-D92zIs01.css",
-        "bytes": 4241,
-        "duration": 61.600000001490116
+        "name": "/assets/index-CwGlmpkO.css",
+        "bytes": 6217,
+        "duration": 21.899999976158142
       },
       {
         "name": "/assets/salmon-hero-v1.webp",
         "bytes": 49046,
-        "duration": 204.30000000447035
+        "duration": 3
       },
       {
         "name": "/favicon.svg",
         "bytes": 483,
-        "duration": 3.3000000044703484
+        "duration": 2.5
       }
     ],
-    "longTasks": 3,
-    "maxLongTaskMs": 376
+    "longTasks": 6,
+    "maxLongTaskMs": 206
   }
 }

@@ -1,3 +1,4 @@
+import { COLLAPSE_DURATION_MS } from '../logic/loop';
 import {
     SAVE_V1_FACILITY_IDS,
     type SaveData,
@@ -163,7 +164,7 @@ import {
   export function parseCurrentSaveData(
     value: unknown,
   ): SaveData | null {
-    return parseSaveDataV2(value);
+    return parseSaveDataV3(value);
   }
 
 function isIdList(value: unknown): value is string[] {
@@ -188,4 +189,18 @@ export function parseSaveDataV2(value: unknown): SaveDataV2 | null {
     unlockedAchievementIds: [...game.unlockedAchievementIds], purchasedUpgradeIds: [...game.purchasedUpgradeIds],
     seenNewsIds: [...game.seenNewsIds],
   } };
+}
+
+export function parseSaveDataV3(value: unknown): SaveData | null {
+  if (!isRecord(value) || value.schemaVersion !== 3 || !isRecord(value.game)
+    || Object.keys(value.game).length !== 10) return null;
+  const { endingPhase, collapseElapsedMs, ...legacy } = value.game;
+  const parsed = parseSaveDataV2({ schemaVersion: 2, savedAtMs: value.savedAtMs, game: legacy });
+  if (!parsed || !isFiniteNonNegativeNumber(collapseElapsedMs) || collapseElapsedMs > COLLAPSE_DURATION_MS
+    || (endingPhase !== 'playing' && endingPhase !== 'collapse' && endingPhase !== 'cleared')) return null;
+  if (endingPhase === 'playing' && collapseElapsedMs !== 0) return null;
+  if (endingPhase !== 'playing' && parsed.game.facilityCounts.global_freshness_sync < 1) return null;
+  if (endingPhase === 'cleared' && collapseElapsedMs !== COLLAPSE_DURATION_MS) return null;
+  return { schemaVersion: 3, savedAtMs: parsed.savedAtMs, game: { ...parsed.game,
+    endingPhase, collapseElapsedMs } };
 }

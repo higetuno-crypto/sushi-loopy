@@ -231,6 +231,10 @@ function stopInterval(): void {
 
 export function startAutoSave(): () => void {
   claimWriterLease();
+  // Story milestones share the existing writer lease and failure reporting.
+  const unsubscribeEnding = useGameStore.subscribe((state, previous) => {
+    if (state.endingPhase !== previous.endingPhase) flushUnlessHiddenSpanPending();
+  });
 
   const handleVisibilityChange = (): void => {
     if (
@@ -309,6 +313,7 @@ export function startAutoSave(): () => void {
     flushUnlessHiddenSpanPending();
 
     stopInterval();
+    unsubscribeEnding();
 
     document.removeEventListener(
       "visibilitychange",

@@ -85,6 +85,7 @@ export function selectFacilityProduction(
 export function selectTotalSushiPerSecond(
   state: GameState,
 ): number {
+  if (state.endingPhase !== 'playing') return 0;
   return FACILITIES.reduce((total, facility) => total + selectFacilityProduction(state, facility.id), 0);
 }
 

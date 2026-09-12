@@ -46,7 +46,7 @@ const { applyOfflineProduction: catchUp } = await load('runtime/offlineCatchUp')
 const { startAutoSave, AUTO_SAVE_INTERVAL_MS } = await load('runtime/autoSave');
 const { bootstrapGame } = await load('runtime/bootstrap');
 const oldSave = (game = {}) => ({ schemaVersion: 1, savedAtMs: 1000, game: { sushi: 20, facilityCounts: initial().facilityCounts, runPlayTimeMs: 1200, ...game } });
-const v2 = () => ({ ...snapshot(store.getState()), savedAtMs: 1000 });
+const currentSave = () => ({ ...snapshot(store.getState()), savedAtMs: 1000 });
 const encode = data => SAVE_CODE_PREFIX + Buffer.from(JSON.stringify(data)).toString('base64');
 const near = (a,b) => assert.ok(Math.abs(a-b) < 1e-7 * Math.max(1, Math.abs(b)), `${a} != ${b}`);
 beforeEach(() => { storage.clear(); intervals.clear(); doc.visibilityState = 'visible'; store.setState({ ...initial(), debugFastClick: false }); });
@@ -64,7 +64,7 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   assert.equal(click(store.getState()), 2);
   assert.equal(sps(store.getState()), 0);
   const saved = snapshot(store.getState());
-  assert.equal(saved.schemaVersion, 2);
+  assert.equal(saved.schemaVersion, 3);
   assert.equal('debugFastClick' in saved.game, false);
   assert.equal('setDebugFastClick' in saved.game, false);
   store.getState().setDebugFastClick(false);
@@ -126,39 +126,39 @@ test('achievement reconciliation is idempotent and only targeted dependencies ar
 test('v1 frozen parser and migration preserve 9 IDs, currency and time; grant owned facility achievements', () => {
   const old=oldSave({facilityCounts:{...initial().facilityCounts,craftsman:4,luna_sea:1}});
   const before=JSON.stringify(old); assert.ok(parseSaveDataV1(old)); const result=migrate(old);
-  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,2); assert.equal(result.savedAtMs,1000);
+  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,3); assert.equal(result.savedAtMs,1000);
   assert.deepEqual(result.game.facilityCounts,old.game.facilityCounts); assert.equal(result.game.sushi,20); assert.equal(result.game.runPlayTimeMs,1200);
   assert.equal(result.game.totalClicks,0); assert.equal(result.game.totalSushiEarned,20);
   assert.deepEqual(result.game.unlockedAchievementIds,['first_craftsman','first_luna_sea']); assert.ok(validate(result));
 });
 test('validation rejects future, missing fields, negative/NaN/infinite values, bad/duplicate IDs', () => {
-  assert.equal(migrate({...v2(),schemaVersion:99}),null);
-  for (const bad of [-1,NaN,Infinity,'1',null]) assert.equal(validate({...v2(),game:{...v2().game,sushi:bad}}),null);
-  for (const bad of [-1,1.1,Number.MAX_SAFE_INTEGER+1]) assert.equal(validate({...v2(),game:{...v2().game,totalClicks:bad}}),null);
-  for (const bad of [['a','a'],[null],['<script>'], 'a']) assert.equal(validate({...v2(),game:{...v2().game,seenNewsIds:bad}}),null);
-  const missing=v2(); delete missing.game.totalClicks; assert.equal(validate(missing),null);
+  assert.equal(migrate({...currentSave(),schemaVersion:99}),null);
+  for (const bad of [-1,NaN,Infinity,'1',null]) assert.equal(validate({...currentSave(),game:{...currentSave().game,sushi:bad}}),null);
+  for (const bad of [-1,1.1,Number.MAX_SAFE_INTEGER+1]) assert.equal(validate({...currentSave(),game:{...currentSave().game,totalClicks:bad}}),null);
+  for (const bad of [['a','a'],[null],['<script>'], 'a']) assert.equal(validate({...currentSave(),game:{...currentSave().game,seenNewsIds:bad}}),null);
+  const missing=currentSave(); delete missing.game.totalClicks; assert.equal(validate(missing),null);
   assert.equal(migrate({...oldSave(),game:{...oldSave().game, facilityCounts:{craftsman:1}}}),null);
 });
-test('unknown content IDs survive v2 round trip and confer no bonus', () => {
+test('unknown content IDs survive current save round trip and confer no bonus', () => {
   store.setState({unlockedAchievementIds:['future_achievement'],purchasedUpgradeIds:['future_upgrade'],seenNewsIds:['future_news']});
-  const result=migrate(v2()); assert.deepEqual(result.game,snapshot(store.getState()).game); assert.equal(calculateModifiers(result.game).production,1);
+  const result=migrate(currentSave()); assert.deepEqual(result.game,snapshot(store.getState()).game); assert.equal(calculateModifiers(result.game).production,1);
 });
 test('snapshot/hydration clone collections and exclude derived values/actions', () => {
-  const data=v2(); assert.equal(Object.keys(data.game).length,8); assert.equal(data.game.tapSushi,undefined);
+  const data=currentSave(); assert.equal(Object.keys(data.game).length,10); assert.equal(data.game.tapSushi,undefined);
   const state=hydrate(data); state.facilityCounts.craftsman=7; state.seenNewsIds.push('tea'); assert.equal(data.game.facilityCounts.craftsman,0); assert.deepEqual(data.game.seenNewsIds,[]);
 });
-test('Main Save/Load persists all v2 fields and backs up v1 once without mutation', () => {
+test('Main Save/Load persists all current fields and backs up v1 once without mutation', () => {
   const raw=JSON.stringify(oldSave()); storage.setItem(MAIN_SAVE_KEY,raw); store.setState(migrate(oldSave()).game);
   assert.ok(save(store.getState()).success); assert.equal(storage.getItem('sushi-loopy.save.backup-v1'),raw);
   assert.deepEqual(loadSave().save.game,snapshot(store.getState()).game); assert.ok(save(store.getState()).success); assert.equal(storage.getItem('sushi-loopy.save.backup-v1'),raw);
 });
 test('corrupt/future Main Saves are not overwritten by automatic writes', () => {
-  for (const raw of ['{bad',JSON.stringify({...v2(),schemaVersion:99})]) {
+  for (const raw of ['{bad',JSON.stringify({...currentSave(),schemaVersion:99})]) {
     storage.setItem(MAIN_SAVE_KEY,raw); const result=save(store.getState()); assert.equal(result.success,false); assert.equal(result.reason,'protected-existing-save'); assert.equal(storage.getItem(MAIN_SAVE_KEY),raw);
   }
 });
 test('storage quota failures are reported', () => { storage.failWrites=true; assert.equal(save(store.getState()).success,false); });
-test('Save Code exports v2, imports all fields, keeps actions, and applies no offline gain', () => {
+test('Save Code exports v3, imports all fields, keeps actions, and applies no offline gain', () => {
   store.setState({sushi:55,totalClicks:100,totalSushiEarned:500,unlockedAchievementIds:['click_100'],purchasedUpgradeIds:['warm_hands'],seenNewsIds:['tea']});
   const expected=snapshot(store.getState()).game; const code=exportCode(); assert.ok(code.startsWith('SUSHILOOPY1:'));
   store.setState(initial()); assert.equal(importCode(code).ok,true); assert.deepEqual(snapshot(store.getState()).game,expected); assert.equal(typeof store.getState().tapSushi,'function');
@@ -169,7 +169,7 @@ test('v1 code migration applies no offline gain and does not generate checkpoint
 });
 test('invalid Save Codes leave store and storage unchanged', () => {
   const before=snapshot(store.getState());
-  for (const code of ['', 'bad','SUSHILOOPY1:@@@@',encode({...v2(),schemaVersion:99}),SAVE_CODE_PREFIX+Buffer.from('{').toString('base64')]) assert.equal(importCode(code).ok,false);
+  for (const code of ['', 'bad','SUSHILOOPY1:@@@@',encode({...currentSave(),schemaVersion:99}),SAVE_CODE_PREFIX+Buffer.from('{').toString('base64')]) assert.equal(importCode(code).ok,false);
   assert.deepEqual(snapshot(store.getState()),before); assert.equal(storage.getItem(MAIN_SAVE_KEY),null);
 });
 test('checkpoint captures achievement on first real purchase, never overwrites, full restore has no offline', () => {
@@ -202,9 +202,9 @@ test('offline clamps future/invalid/long intervals and never advances active pla
   assert.equal(offline(store.getState(),0,1e12).offlineSeconds,MAX_OFFLINE_SECONDS);
   catchUp(1000,3000); assert.equal(store.getState().sushi,2); assert.equal(store.getState().totalSushiEarned,2); assert.equal(store.getState().runPlayTimeMs,0); assert.equal(store.getState().totalClicks,0);
 });
-test('startup hydration applies offline once, refreshes savedAt, and keeps v2 fields', () => {
+test('startup hydration applies offline once, refreshes savedAt, and keeps current fields', () => {
   const now=Date.now; Date.now=()=>10000;
-  try { const data=v2(); data.savedAtMs=5000; data.game.facilityCounts.craftsman=1; data.game.totalClicks=42;
+  try { const data=currentSave(); data.savedAtMs=5000; data.game.facilityCounts.craftsman=1; data.game.totalClicks=42;
     storage.setItem(MAIN_SAVE_KEY,JSON.stringify(data)); const stop=bootstrapGame(); assert.equal(store.getState().sushi,5); assert.equal(store.getState().totalClicks,42); stop();
     const stopAgain=bootstrapGame(); assert.equal(store.getState().sushi,5); assert.equal(loadSave().save.savedAtMs,10000); stopAgain();
   } finally { Date.now=now; }
@@ -227,4 +227,114 @@ test('News respects conditions, prioritizes unread and avoids immediate repeats'
   state.seenNewsIds=['opening']; assert.equal(chooseNews(state).id,'tea');
   state.facilityCounts.global_freshness_sync=1; assert.equal(chooseNews(state).id,'sync');
   state.seenNewsIds=NEWS.map(x=>x.id); assert.notEqual(chooseNews(state,'sync').id,'sync');
+});
+
+
+test('v2 migrates without losing progress and backs up the original once', () => {
+  const { endingPhase: _endingPhase, collapseElapsedMs: _collapseElapsedMs, ...game } = initial();
+  game.facilityCounts.global_freshness_sync = 1;
+  game.totalSushiEarned = 5e9;
+  const old = { schemaVersion: 2, savedAtMs: 1000, game };
+  const raw = JSON.stringify(old);
+  const result = migrate(old);
+  assert.ok(result); assert.equal(result.schemaVersion, 3);
+  assert.equal(result.game.endingPhase, 'playing'); assert.equal(result.game.collapseElapsedMs, 0);
+  assert.deepEqual(result.game.facilityCounts, game.facilityCounts);
+  assert.equal(result.game.totalSushiEarned, 5e9);
+  assert.equal(JSON.stringify(old), raw);
+  storage.setItem(MAIN_SAVE_KEY, raw); store.setState(result.game);
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v2'), raw);
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v2'), raw);
+  assert.ok(importCode(encode(old)).ok);
+  assert.equal(store.getState().endingPhase, 'playing');
+});
+
+test('first-run ending requires the last facility, waits for the story, and clears exactly once', () => {
+  store.getState().startCollapse(); store.getState().finishFirstRun();
+  assert.equal(store.getState().endingPhase, 'playing');
+  store.setState({ sushi: 1e9 });
+  store.getState().buyFacility('global_freshness_sync');
+  store.getState().setDebugFastClick(true);
+  store.getState().startCollapse();
+  assert.equal(store.getState().endingPhase, 'collapse');
+  assert.equal(store.getState().debugFastClick, false);
+  assert.equal(sps(store.getState()), 0);
+  const before = snapshot(store.getState());
+  store.getState().tapSushi(); store.getState().buyFacility('craftsman');
+  store.getState().buyUpgrade('warm_hands'); store.getState().applyProduction(3600);
+  store.getState().finishFirstRun();
+  assert.deepEqual(snapshot(store.getState()), before);
+  store.getState().addRunPlayTime(12000);
+  store.getState().startCollapse();
+  assert.equal(store.getState().collapseElapsedMs, 12000);
+  store.getState().addRunPlayTime(15999); store.getState().finishFirstRun();
+  assert.equal(store.getState().endingPhase, 'collapse');
+  store.getState().addRunPlayTime(1); store.getState().finishFirstRun();
+  assert.equal(store.getState().endingPhase, 'cleared');
+  assert.equal(store.getState().totalClicks, before.game.totalClicks + 1);
+  assert.equal(store.getState().sushi, before.game.sushi + 1);
+  assert.equal(store.getState().totalSushiEarned, before.game.totalSushiEarned + 1);
+  const cleared = snapshot(store.getState());
+  store.getState().finishFirstRun(); store.getState().tapSushi(); store.getState().addRunPlayTime(60000);
+  store.getState().applyProduction(60000); store.getState().startCollapse();
+  assert.deepEqual(snapshot(store.getState()), cleared);
+  assert.ok(validate({ ...cleared, savedAtMs: 1000 }));
+});
+
+test('collapse and clear survive Save Code, startup and offline without story skipping', () => {
+  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
+  store.getState().startCollapse(); store.getState().addRunPlayTime(14000);
+  for (const phase of ['collapse', 'cleared']) {
+    if (phase === 'cleared') { store.getState().addRunPlayTime(14000); store.getState().finishFirstRun(); }
+    const before = snapshot(store.getState());
+    assert.equal(offline(store.getState(), 0, 1e9).offlineGain, 0);
+    assert.equal(catchUp(0, 1e9), 0);
+    assert.deepEqual(snapshot(store.getState()), before);
+    const code = encode({ ...before, savedAtMs: 0 });
+    store.setState(initial()); assert.ok(importCode(code).ok);
+    assert.deepEqual(snapshot(store.getState()), before);
+    storage.setItem(MAIN_SAVE_KEY, JSON.stringify({ ...before, savedAtMs: 0 }));
+    store.setState(initial()); const stop = bootstrapGame();
+    assert.deepEqual(snapshot(store.getState()), before); stop();
+  }
+});
+
+test('v3 rejects inconsistent ending states and preserves invalid saves', () => {
+  for (const game of [
+    { ...initial(), endingPhase: 'unknown' },
+    { ...initial(), collapseElapsedMs: 1 },
+    { ...initial(), endingPhase: 'collapse', collapseElapsedMs: 0 },
+    { ...initial(), endingPhase: 'cleared', collapseElapsedMs: 28000 },
+    { ...initial(), endingPhase: 'cleared', collapseElapsedMs: 20000, facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } },
+    ...[-1, NaN, Infinity, 28001].map(collapseElapsedMs => ({ ...initial(), collapseElapsedMs })),
+  ]) assert.equal(validate({ schemaVersion: 3, savedAtMs: 1000, game }), null);
+});
+
+test('ending milestones immediately persist via Auto Save and preserve writer protection', () => {
+  const stop = startAutoSave();
+  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
+  store.getState().startCollapse();
+  assert.equal(loadSave().save.game.endingPhase, 'collapse');
+  store.getState().addRunPlayTime(28000); store.getState().finishFirstRun();
+  assert.equal(loadSave().save.game.endingPhase, 'cleared');
+  stop();
+});
+
+test('blocked writer and storage failures cannot silently overwrite a clear record', () => {
+  const stop = startAutoSave();
+  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
+  store.getState().startCollapse();
+  const before = storage.getItem(MAIN_SAVE_KEY);
+  storage.setItem('sushi-loopy.writer', JSON.stringify({ id:'other-tab',atMs:Date.now() }));
+  store.getState().addRunPlayTime(28000); store.getState().finishFirstRun();
+  assert.equal(storage.getItem(MAIN_SAVE_KEY), before);
+  assert.equal(store.getState().endingPhase, 'cleared');
+  storage.removeItem('sushi-loopy.writer');
+  storage.failWrites = true;
+  assert.equal(save(store.getState()).success, false);
+  storage.failWrites = false;
+  stop();
+  assert.equal(loadSave().save.game.endingPhase, 'cleared');
 });
