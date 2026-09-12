@@ -76,7 +76,7 @@ export function selectFacilityProduction(
   return calculateFacilityProduction(
     facility,
     ownedCount,
-  ) * modifiers.production * (modifiers.facility[facilityId] ?? 1);
+  ) * modifiers.production * (modifiers.facility[facilityId] ?? 1) * (1 + Math.min(state.syncCount, 2) * 0.25);
 }
 
 /**
@@ -94,5 +94,5 @@ export function selectSushiPerClick(state: GameState): number {
 }
 
 export function selectProductionBonus(state: GameState): number {
-  return calculateModifiers(state).production - 1;
+  return calculateModifiers(state).production * (1 + Math.min(state.syncCount, 2) * 0.25) - 1;
 }

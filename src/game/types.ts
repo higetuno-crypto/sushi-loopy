@@ -31,6 +31,8 @@ export interface FacilityDefinition {
 export type EndingPhase = 'playing' | 'collapse' | 'cleared';
 
 export interface GameState {
+  syncCount: number;
+  syncElapsedMs: number;
   endingPhase: EndingPhase;
   collapseElapsedMs: number;
   /**

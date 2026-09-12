@@ -233,7 +233,7 @@ export function startAutoSave(): () => void {
   claimWriterLease();
   // Story milestones share the existing writer lease and failure reporting.
   const unsubscribeEnding = useGameStore.subscribe((state, previous) => {
-    if (state.endingPhase !== previous.endingPhase) flushUnlessHiddenSpanPending();
+    if (state.endingPhase !== previous.endingPhase || state.syncCount !== previous.syncCount) flushUnlessHiddenSpanPending();
   });
 
   const handleVisibilityChange = (): void => {

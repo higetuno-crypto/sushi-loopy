@@ -1,5 +1,5 @@
 // Actions commit progress atomically, before checkpoint tracking snapshots it.
-import { canStartCollapse, canFinishFirstRun, COLLAPSE_DURATION_MS } from '../logic/loop';
+import { pendingSynchronization, canBuySyncDevice, canFinishFirstRun, COLLAPSE_DURATION_MS, SYNC_SETTLE_MS } from '../logic/loop';
 import { create } from 'zustand';
 
 import type { FacilityId, GameState } from '../types';
@@ -12,7 +12,8 @@ import { createInitialGameState } from './initialState';
 import { selectSushiPerClick, selectTotalSushiPerSecond } from './selectors';
 
 type GameActions = {
-  startCollapse: () => void;
+  synchronize: () => void;
+  replaySynchronization: () => void;
   finishFirstRun: () => void;
   debugFastClick: boolean;
   setDebugFastClick: (enabled: boolean) => void;
@@ -33,8 +34,17 @@ const safeAdd = (a: number, b: number) => Math.min(a + b, Number.MAX_VALUE);
 export const useGameStore = create<GameStore>()((set) => ({
   ...createInitialGameState(),
   debugFastClick: false,
-  startCollapse: () => set(state => canStartCollapse(state)
-    ? { endingPhase: 'collapse', collapseElapsedMs: 0, debugFastClick: false } : state),
+  synchronize: () => set(state => pendingSynchronization(state)
+    ? { syncCount: state.syncCount + 1, syncElapsedMs: 0 } : state),
+  replaySynchronization: () => set(state => {
+    if (state.endingPhase !== 'cleared') return state;
+    const count = state.facilityCounts.global_freshness_sync;
+    const facility = FACILITIES.find(f => f.id === 'global_freshness_sync')!;
+    const refund = facility.basePrice * (facility.growthRate ** count - 1) / (facility.growthRate - 1);
+    return { endingPhase: 'playing', collapseElapsedMs: 0, syncCount: 0, syncElapsedMs: 0,
+      sushi: safeAdd(state.sushi, Math.round(refund)), debugFastClick: false,
+      facilityCounts: { ...state.facilityCounts, global_freshness_sync: 0 } };
+  }),
   finishFirstRun: () => set(state => canFinishFirstRun(state) ? {
     endingPhase: 'cleared', sushi: safeAdd(state.sushi, 1),
     totalSushiEarned: safeAdd(state.totalSushiEarned, 1),
@@ -65,6 +75,7 @@ export const useGameStore = create<GameStore>()((set) => ({
         return state;
       }
   
+      if (facilityId === 'global_freshness_sync' && !canBuySyncDevice(state)) return state;
       const ownedCount = state.facilityCounts[facilityId];
   
       const currentPrice = calculateCurrentPrice(
@@ -78,6 +89,10 @@ export const useGameStore = create<GameStore>()((set) => ({
   
       return resolveAchievements({ ...state,
         sushi: state.sushi - currentPrice,
+        ...(facilityId === 'global_freshness_sync' && state.syncCount === 2 ? {
+          syncCount: 3, syncElapsedMs: 0, endingPhase: 'collapse' as const,
+          collapseElapsedMs: 0, debugFastClick: false,
+        } : {}),
   
         facilityCounts: {
           ...state.facilityCounts,
@@ -112,7 +127,8 @@ export const useGameStore = create<GameStore>()((set) => ({
         runPlayTimeMs: safeAdd(state.runPlayTimeMs, deltaMs),
         collapseElapsedMs: Math.min(COLLAPSE_DURATION_MS, state.collapseElapsedMs + deltaMs),
       };
-      const next = { ...state, runPlayTimeMs: safeAdd(state.runPlayTimeMs, deltaMs) };
+      const next = { ...state, runPlayTimeMs: safeAdd(state.runPlayTimeMs, deltaMs),
+        syncElapsedMs: state.syncCount > 0 ? Math.min(SYNC_SETTLE_MS, state.syncElapsedMs + deltaMs) : 0 };
       return Math.floor(next.runPlayTimeMs / 1000) !== Math.floor(state.runPlayTimeMs / 1000)
         ? resolveAchievements(next, ['runPlayTimeMs', 'totalSushiEarned', 'sushi']) : next;
     });

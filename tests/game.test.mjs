@@ -64,7 +64,7 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   assert.equal(click(store.getState()), 2);
   assert.equal(sps(store.getState()), 0);
   const saved = snapshot(store.getState());
-  assert.equal(saved.schemaVersion, 3);
+  assert.equal(saved.schemaVersion, 4);
   assert.equal('debugFastClick' in saved.game, false);
   assert.equal('setDebugFastClick' in saved.game, false);
   store.getState().setDebugFastClick(false);
@@ -88,10 +88,10 @@ test('100 actual clicks unlock once, balance and lifetime gains track clicks', (
 test('every facility purchase grants exactly its achievement with data-defined reward', () => {
   for (const f of FACILITIES) {
     store.setState(initial()); store.setState({ sushi: f.basePrice * 10 });
-    store.getState().buyFacility(f.id); store.getState().buyFacility(f.id);
+    store.getState().buyFacility(f.id); if (f.id !== 'global_freshness_sync') store.getState().buyFacility(f.id);
     assert.deepEqual(store.getState().unlockedAchievementIds, [`first_${f.id}`]);
     const bonus = ACHIEVEMENTS.find(x => x.id === `first_${f.id}`).effects[0].amount;
-    near(sps(store.getState()), f.baseProduction*2*(1+bonus));
+    near(sps(store.getState()), f.baseProduction*(f.id === 'global_freshness_sync' ? 1 : 2)*(1+bonus));
   }
 });
 test('insufficient/unknown/overflow facility purchase does not change state', () => {
@@ -126,7 +126,7 @@ test('achievement reconciliation is idempotent and only targeted dependencies ar
 test('v1 frozen parser and migration preserve 9 IDs, currency and time; grant owned facility achievements', () => {
   const old=oldSave({facilityCounts:{...initial().facilityCounts,craftsman:4,luna_sea:1}});
   const before=JSON.stringify(old); assert.ok(parseSaveDataV1(old)); const result=migrate(old);
-  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,3); assert.equal(result.savedAtMs,1000);
+  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,4); assert.equal(result.savedAtMs,1000);
   assert.deepEqual(result.game.facilityCounts,old.game.facilityCounts); assert.equal(result.game.sushi,20); assert.equal(result.game.runPlayTimeMs,1200);
   assert.equal(result.game.totalClicks,0); assert.equal(result.game.totalSushiEarned,20);
   assert.deepEqual(result.game.unlockedAchievementIds,['first_craftsman','first_luna_sea']); assert.ok(validate(result));
@@ -144,7 +144,7 @@ test('unknown content IDs survive current save round trip and confer no bonus', 
   const result=migrate(currentSave()); assert.deepEqual(result.game,snapshot(store.getState()).game); assert.equal(calculateModifiers(result.game).production,1);
 });
 test('snapshot/hydration clone collections and exclude derived values/actions', () => {
-  const data=currentSave(); assert.equal(Object.keys(data.game).length,10); assert.equal(data.game.tapSushi,undefined);
+  const data=currentSave(); assert.equal(Object.keys(data.game).length,12); assert.equal(data.game.tapSushi,undefined);
   const state=hydrate(data); state.facilityCounts.craftsman=7; state.seenNewsIds.push('tea'); assert.equal(data.game.facilityCounts.craftsman,0); assert.deepEqual(data.game.seenNewsIds,[]);
 });
 test('Main Save/Load persists all current fields and backs up v1 once without mutation', () => {
@@ -158,7 +158,7 @@ test('corrupt/future Main Saves are not overwritten by automatic writes', () => 
   }
 });
 test('storage quota failures are reported', () => { storage.failWrites=true; assert.equal(save(store.getState()).success,false); });
-test('Save Code exports v3, imports all fields, keeps actions, and applies no offline gain', () => {
+test('Save Code exports v4, imports all fields, keeps actions, and applies no offline gain', () => {
   store.setState({sushi:55,totalClicks:100,totalSushiEarned:500,unlockedAchievementIds:['click_100'],purchasedUpgradeIds:['warm_hands'],seenNewsIds:['tea']});
   const expected=snapshot(store.getState()).game; const code=exportCode(); assert.ok(code.startsWith('SUSHILOOPY1:'));
   store.setState(initial()); assert.equal(importCode(code).ok,true); assert.deepEqual(snapshot(store.getState()).game,expected); assert.equal(typeof store.getState().tapSushi,'function');
@@ -230,111 +230,153 @@ test('News respects conditions, prioritizes unread and avoids immediate repeats'
 });
 
 
-test('v2 migrates without losing progress and backs up the original once', () => {
-  const { endingPhase: _endingPhase, collapseElapsedMs: _collapseElapsedMs, ...game } = initial();
-  game.facilityCounts.global_freshness_sync = 1;
-  game.totalSushiEarned = 5e9;
-  const old = { schemaVersion: 2, savedAtMs: 1000, game };
-  const raw = JSON.stringify(old);
-  const result = migrate(old);
-  assert.ok(result); assert.equal(result.schemaVersion, 3);
-  assert.equal(result.game.endingPhase, 'playing'); assert.equal(result.game.collapseElapsedMs, 0);
-  assert.deepEqual(result.game.facilityCounts, game.facilityCounts);
-  assert.equal(result.game.totalSushiEarned, 5e9);
-  assert.equal(JSON.stringify(old), raw);
-  storage.setItem(MAIN_SAVE_KEY, raw); store.setState(result.game);
-  assert.ok(save(store.getState()).success);
-  assert.equal(storage.getItem('sushi-loopy.save.backup-v2'), raw);
-  assert.ok(save(store.getState()).success);
-  assert.equal(storage.getItem('sushi-loopy.save.backup-v2'), raw);
-  assert.ok(importCode(encode(old)).ok);
-  assert.equal(store.getState().endingPhase, 'playing');
+
+const { pendingSynchronization, canBuySyncDevice, anomalyLevel, SYNC_SETTLE_MS, COLLAPSE_DURATION_MS } = await load('logic/loop');
+function buySync() { store.getState().buyFacility('global_freshness_sync'); }
+function firstTwoSyncs() {
+  store.setState({ sushi:5e9 });
+  buySync(); store.getState().synchronize(); buySync(); store.getState().synchronize();
+}
+function reachCollapse() { firstTwoSyncs(); store.getState().addRunPlayTime(SYNC_SETTLE_MS); buySync(); }
+function legacyV3(phase='playing') {
+  const { syncCount:_syncCount, syncElapsedMs:_syncElapsedMs, ...game } = initial();
+  game.facilityCounts.global_freshness_sync=1;
+  game.endingPhase=phase;
+  game.collapseElapsedMs=phase==='cleared'?28000:phase==='collapse'?12000:0;
+  return {schemaVersion:3,savedAtMs:1000,game};
+}
+
+test('two purchased devices synchronize separately; third purchase triggers collapse only after settlement', () => {
+  store.getState().synchronize(); assert.equal(store.getState().syncCount,0);
+  store.setState({sushi:5e9}); buySync();
+  assert.equal(store.getState().facilityCounts.global_freshness_sync,1);
+  assert.equal(pendingSynchronization(store.getState()),true);
+  assert.equal(store.getState().endingPhase,'playing');
+  buySync(); assert.equal(store.getState().facilityCounts.global_freshness_sync,1);
+  const beforeSync=sps(store.getState());
+  store.getState().synchronize();
+  assert.equal(anomalyLevel(store.getState()),1); near(sps(store.getState()),beforeSync*1.25);
+  store.getState().synchronize(); assert.equal(store.getState().syncCount,1);
+  buySync(); assert.equal(pendingSynchronization(store.getState()),true);
+  store.getState().synchronize(); assert.equal(anomalyLevel(store.getState()),2);
+  assert.equal(store.getState().endingPhase,'playing');
+  store.getState().tapSushi(); assert.equal(store.getState().totalClicks,1);
+  buySync(); assert.equal(store.getState().facilityCounts.global_freshness_sync,2);
+  store.getState().addRunPlayTime(SYNC_SETTLE_MS-1);
+  assert.equal(canBuySyncDevice(store.getState()),false);
+  store.getState().addRunPlayTime(1);
+  assert.equal(anomalyLevel(store.getState()),3);
+  const before=store.getState().sushi;
+  buySync();
+  assert.equal(store.getState().facilityCounts.global_freshness_sync,3);
+  assert.equal(store.getState().syncCount,3);
+  assert.equal(store.getState().endingPhase,'collapse');
+  assert.equal(anomalyLevel(store.getState()),4);
+  near(before-store.getState().sushi,1e9*1.15**2);
+  assert.equal(sps(store.getState()),0);
 });
 
-test('first-run ending requires the last facility, waits for the story, and clears exactly once', () => {
-  store.getState().startCollapse(); store.getState().finishFirstRun();
-  assert.equal(store.getState().endingPhase, 'playing');
-  store.setState({ sushi: 1e9 });
-  store.getState().buyFacility('global_freshness_sync');
-  store.getState().setDebugFastClick(true);
-  store.getState().startCollapse();
-  assert.equal(store.getState().endingPhase, 'collapse');
-  assert.equal(store.getState().debugFastClick, false);
-  assert.equal(sps(store.getState()), 0);
-  const before = snapshot(store.getState());
-  store.getState().tapSushi(); store.getState().buyFacility('craftsman');
-  store.getState().buyUpgrade('warm_hands'); store.getState().applyProduction(3600);
-  store.getState().finishFirstRun();
-  assert.deepEqual(snapshot(store.getState()), before);
-  store.getState().addRunPlayTime(12000);
-  store.getState().startCollapse();
-  assert.equal(store.getState().collapseElapsedMs, 12000);
-  store.getState().addRunPlayTime(15999); store.getState().finishFirstRun();
-  assert.equal(store.getState().endingPhase, 'collapse');
-  store.getState().addRunPlayTime(1); store.getState().finishFirstRun();
-  assert.equal(store.getState().endingPhase, 'cleared');
-  assert.equal(store.getState().totalClicks, before.game.totalClicks + 1);
-  assert.equal(store.getState().sushi, before.game.sushi + 1);
-  assert.equal(store.getState().totalSushiEarned, before.game.totalSushiEarned + 1);
-  const cleared = snapshot(store.getState());
-  store.getState().finishFirstRun(); store.getState().tapSushi(); store.getState().addRunPlayTime(60000);
-  store.getState().applyProduction(60000); store.getState().startCollapse();
-  assert.deepEqual(snapshot(store.getState()), cleared);
-  assert.ok(validate({ ...cleared, savedAtMs: 1000 }));
+test('error and fracture end in one real manual sushi, without double finish or ordinary actions', () => {
+  reachCollapse();
+  const before=snapshot(store.getState());
+  store.getState().tapSushi();store.getState().buyUpgrade('warm_hands');buySync();store.getState().applyProduction(60);
+  store.getState().finishFirstRun();store.getState().synchronize();
+  assert.deepEqual(snapshot(store.getState()),before);
+  for(const invalid of [-1,NaN,Infinity,0])store.getState().addRunPlayTime(invalid);
+  assert.deepEqual(snapshot(store.getState()),before);
+  store.getState().addRunPlayTime(6000);assert.equal(anomalyLevel(store.getState()),5);
+  store.getState().addRunPlayTime(COLLAPSE_DURATION_MS-6001);store.getState().finishFirstRun();
+  assert.equal(store.getState().endingPhase,'collapse');
+  store.getState().addRunPlayTime(1);store.getState().finishFirstRun();
+  assert.equal(store.getState().endingPhase,'cleared');
+  assert.equal(store.getState().totalClicks,before.game.totalClicks+1);
+  assert.equal(store.getState().sushi,before.game.sushi+1);
+  assert.equal(store.getState().totalSushiEarned,before.game.totalSushiEarned+1);
+  const done=snapshot(store.getState());
+  store.getState().finishFirstRun();store.getState().addRunPlayTime(90000);store.getState().applyProduction(90000);
+  assert.deepEqual(snapshot(store.getState()),done);
 });
 
-test('collapse and clear survive Save Code, startup and offline without story skipping', () => {
-  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
-  store.getState().startCollapse(); store.getState().addRunPlayTime(14000);
-  for (const phase of ['collapse', 'cleared']) {
-    if (phase === 'cleared') { store.getState().addRunPlayTime(14000); store.getState().finishFirstRun(); }
-    const before = snapshot(store.getState());
-    assert.equal(offline(store.getState(), 0, 1e9).offlineGain, 0);
-    assert.equal(catchUp(0, 1e9), 0);
-    assert.deepEqual(snapshot(store.getState()), before);
-    const code = encode({ ...before, savedAtMs: 0 });
-    store.setState(initial()); assert.ok(importCode(code).ok);
-    assert.deepEqual(snapshot(store.getState()), before);
-    storage.setItem(MAIN_SAVE_KEY, JSON.stringify({ ...before, savedAtMs: 0 }));
-    store.setState(initial()); const stop = bootstrapGame();
-    assert.deepEqual(snapshot(store.getState()), before); stop();
+test('old v2 and every v3 ending state migrate without replay, losing records or mutating source', () => {
+  for(const phase of ['playing','collapse','cleared']){
+    const old=legacyV3(phase), raw=JSON.stringify(old), result=migrate(old);
+    assert.equal(result.schemaVersion,4);assert.equal(result.game.endingPhase,phase);
+    assert.equal(result.game.collapseElapsedMs,old.game.collapseElapsedMs);
+    assert.equal(result.game.syncCount,phase==='playing'?0:1);
+    assert.equal(JSON.stringify(old),raw);assert.ok(validate(result));
+    storage.setItem(MAIN_SAVE_KEY,raw);store.setState(result.game);
+    assert.ok(save(store.getState()).success);
+    assert.equal(JSON.parse(storage.getItem('sushi-loopy.save.backup-v3')).schemaVersion,3);
+  }
+  const { endingPhase:_endingPhase,collapseElapsedMs:_elapsed,...game }=legacyV3().game;
+  const old={schemaVersion:2,savedAtMs:1000,game};
+  const result=migrate(old);assert.ok(result);assert.equal(result.game.syncCount,0);
+  assert.deepEqual(result.game.facilityCounts,old.game.facilityCounts);
+  assert.ok(importCode(encode(old)).ok);assert.equal(store.getState().endingPhase,'playing');
+});
+
+test('pending and completed sync, collapse and clear restore exactly; offline never advances the story', () => {
+  firstTwoSyncs();store.getState().addRunPlayTime(12000);
+  for(const stage of ['sync','collapse','cleared']){
+    if(stage==='collapse'){store.getState().addRunPlayTime(6000);buySync();store.getState().addRunPlayTime(14000);}
+    if(stage==='cleared'){store.getState().addRunPlayTime(14000);store.getState().finishFirstRun();}
+    const before=snapshot(store.getState());
+    const offlineResult=offline(store.getState(),0,1e9);
+    if(stage==='sync')assert.ok(offlineResult.offlineGain>0);else assert.equal(offlineResult.offlineGain,0);
+    assert.deepEqual(snapshot(store.getState()),before);
+    const code=encode({...before,savedAtMs:0});store.setState(initial());
+    assert.ok(importCode(code).ok);assert.deepEqual(snapshot(store.getState()),before);
+    if(stage!=='sync'){
+      storage.setItem(MAIN_SAVE_KEY,JSON.stringify({...before,savedAtMs:0}));store.setState(initial());
+      const stop=bootstrapGame();assert.deepEqual(snapshot(store.getState()),before);stop();
+    }
   }
 });
 
-test('v3 rejects inconsistent ending states and preserves invalid saves', () => {
-  for (const game of [
-    { ...initial(), endingPhase: 'unknown' },
-    { ...initial(), collapseElapsedMs: 1 },
-    { ...initial(), endingPhase: 'collapse', collapseElapsedMs: 0 },
-    { ...initial(), endingPhase: 'cleared', collapseElapsedMs: 28000 },
-    { ...initial(), endingPhase: 'cleared', collapseElapsedMs: 20000, facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } },
-    ...[-1, NaN, Infinity, 28001].map(collapseElapsedMs => ({ ...initial(), collapseElapsedMs })),
-  ]) assert.equal(validate({ schemaVersion: 3, savedAtMs: 1000, game }), null);
+test('current save rejects malformed synchronization and protects old files', () => {
+  for(const patch of [{syncCount:-1},{syncCount:4},{syncCount:1},{syncElapsedMs:1},{syncElapsedMs:NaN},
+    {syncElapsedMs:18001},{endingPhase:'collapse'},{endingPhase:'unknown'}]){
+    assert.equal(validate({schemaVersion:4,savedAtMs:1000,game:{...initial(),...patch}}),null);
+  }
+  const old=JSON.stringify(legacyV3('cleared'));
+  storage.setItem(MAIN_SAVE_KEY,old);store.setState(migrate(JSON.parse(old)).game);
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v3'),old);
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v3'),old);
 });
 
-test('ending milestones immediately persist via Auto Save and preserve writer protection', () => {
-  const stop = startAutoSave();
-  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
-  store.getState().startCollapse();
-  assert.equal(loadSave().save.game.endingPhase, 'collapse');
-  store.getState().addRunPlayTime(28000); store.getState().finishFirstRun();
-  assert.equal(loadSave().save.game.endingPhase, 'cleared');
-  stop();
+test('replay is explicit, returns spent sync currency, and keeps other facilities and achievements', () => {
+  const old=legacyV3('cleared');old.game.facilityCounts.craftsman=7;
+  old.game.unlockedAchievementIds=['first_craftsman','first_global_freshness_sync'];
+  store.setState(migrate(old).game);const before=snapshot(store.getState()).game;
+  store.getState().replaySynchronization();
+  assert.equal(store.getState().endingPhase,'playing');assert.equal(store.getState().syncCount,0);
+  assert.equal(store.getState().facilityCounts.global_freshness_sync,0);
+  assert.equal(store.getState().facilityCounts.craftsman,7);
+  assert.deepEqual(store.getState().unlockedAchievementIds,before.unlockedAchievementIds);
+  assert.equal(store.getState().sushi,before.sushi+1e9);
+  assert.equal(store.getState().totalSushiEarned,before.totalSushiEarned);
+  store.getState().replaySynchronization();assert.equal(store.getState().sushi,before.sushi+1e9);
 });
 
-test('blocked writer and storage failures cannot silently overwrite a clear record', () => {
-  const stop = startAutoSave();
-  store.setState({ facilityCounts: { ...initial().facilityCounts, global_freshness_sync: 1 } });
-  store.getState().startCollapse();
-  const before = storage.getItem(MAIN_SAVE_KEY);
-  storage.setItem('sushi-loopy.writer', JSON.stringify({ id:'other-tab',atMs:Date.now() }));
-  store.getState().addRunPlayTime(28000); store.getState().finishFirstRun();
-  assert.equal(storage.getItem(MAIN_SAVE_KEY), before);
-  assert.equal(store.getState().endingPhase, 'cleared');
-  storage.removeItem('sushi-loopy.writer');
-  storage.failWrites = true;
-  assert.equal(save(store.getState()).success, false);
-  storage.failWrites = false;
-  stop();
-  assert.equal(loadSave().save.game.endingPhase, 'cleared');
+test('sync and clear milestones use immediate Auto Save; another writer retains protection', () => {
+  const stop=startAutoSave();firstTwoSyncs();
+  assert.equal(loadSave().save.game.syncCount,2);
+  store.getState().addRunPlayTime(SYNC_SETTLE_MS);buySync();
+  assert.equal(loadSave().save.game.endingPhase,'collapse');
+  const before=storage.getItem(MAIN_SAVE_KEY);
+  storage.setItem('sushi-loopy.writer',JSON.stringify({id:'other',atMs:Date.now()}));
+  store.getState().addRunPlayTime(COLLAPSE_DURATION_MS);store.getState().finishFirstRun();
+  assert.equal(storage.getItem(MAIN_SAVE_KEY),before);
+  storage.removeItem('sushi-loopy.writer');stop();
+  assert.equal(loadSave().save.game.endingPhase,'cleared');
+});
+
+test('offline income after synchronization preserves anomaly timing and device gating', () => {
+ firstTwoSyncs();store.getState().addRunPlayTime(4000);
+ const elapsed=store.getState().syncElapsedMs,balance=store.getState().sushi;
+ assert.ok(catchUp(0,3600000)>0);assert.ok(store.getState().sushi>balance);
+ assert.equal(store.getState().syncElapsedMs,elapsed);
+ assert.equal(canBuySyncDevice(store.getState()),false);
 });

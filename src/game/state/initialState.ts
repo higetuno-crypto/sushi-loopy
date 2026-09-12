@@ -13,6 +13,8 @@ function createInitialFacilityCounts(): Record<FacilityId, number> {
 
 export function createInitialGameState(): GameState {
   return {
+    syncCount: 0,
+    syncElapsedMs: 0,
     endingPhase: 'playing',
     collapseElapsedMs: 0,
     sushi: 0,

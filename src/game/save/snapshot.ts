@@ -29,6 +29,8 @@ export function createSaveSnapshot(
     schemaVersion: CURRENT_SCHEMA_VERSION,
 
     game: {
+      syncCount: state.syncCount,
+      syncElapsedMs: state.syncElapsedMs,
       endingPhase: state.endingPhase,
       collapseElapsedMs: state.collapseElapsedMs,
       sushi: state.sushi,

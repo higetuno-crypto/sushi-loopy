@@ -28,12 +28,12 @@ try {
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:'artifacts/desktop-initial.png',fullPage:true});
   });
-  await check('10 taps -> real facility purchase -> achievement and v3 checkpoint',async()=>{
+  await check('10 taps -> real facility purchase -> achievement and v4 checkpoint',async()=>{
     for(let i=0;i<10;i++)await page.getByRole('button',{name:'寿司をタップする'}).click();
     await page.getByRole('button',{name:'職人さんを購入',exact:true}).click();
     const s=await state();assert.equal(s.facilityCounts.craftsman,1);assert.ok(s.unlockedAchievementIds.includes('first_craftsman'));
     const cp=await page.evaluate(()=>JSON.parse(localStorage.getItem('sushi-loopy.facility-checkpoints')));
-    assert.equal(cp.craftsman.save.schemaVersion,3);assert.deepEqual(cp.craftsman.save.game.unlockedAchievementIds,['first_craftsman']);
+    assert.equal(cp.craftsman.save.schemaVersion,4);assert.deepEqual(cp.craftsman.save.game.unlockedAchievementIds,['first_craftsman']);
   });
   await check('100 click achievement UI and no duplicates',async()=>{
     for(let i=10;i<100;i++)await page.getByRole('button',{name:'寿司をタップする'}).click();
@@ -97,7 +97,7 @@ try {
     await p.addInitScript(data=>localStorage.setItem('sushi-loopy.save',JSON.stringify(data)),old);
     await p.goto(base);await p.getByRole('button',{name:'寿司をタップする'}).waitFor();
     const result=await p.evaluate(()=>({save:JSON.parse(localStorage.getItem('sushi-loopy.save')),backup:JSON.parse(localStorage.getItem('sushi-loopy.save.backup-v1'))}));
-    assert.equal(result.save.schemaVersion,3);assert.ok(result.save.game.sushi>=80);assert.equal(result.save.game.totalClicks,0);assert.deepEqual(result.backup,old);await isolated.close();
+    assert.equal(result.save.schemaVersion,4);assert.ok(result.save.game.sushi>=80);assert.equal(result.save.game.totalClicks,0);assert.deepEqual(result.backup,old);await isolated.close();
   });
   await check('invalid browser save protected and warning visible',async()=>{
     const isolated=await browser.newContext();const p=await isolated.newPage();await p.addInitScript(()=>localStorage.setItem('sushi-loopy.save','broken-save'));

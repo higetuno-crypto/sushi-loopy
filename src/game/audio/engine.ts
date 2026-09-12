@@ -1,4 +1,4 @@
-import { collapseSceneIndex } from '../logic/loop';
+import { anomalyLevel } from '../logic/loop';
 import { useGameStore } from '../state/store';
 import { BPM, notesAtStep, type ScoreNote } from './score';
 import { createVoice } from './voice';
@@ -32,13 +32,14 @@ function schedule() {
   if (nextTime < context.currentTime) nextTime = context.currentTime + 0.03;
   while (nextTime < context.currentTime + 0.2) {
     const state = useGameStore.getState();
-    const scene = collapseSceneIndex(state.collapseElapsedMs);
-    if (state.endingPhase === 'playing') {
-      for (const note of notesAtStep(step, getMusicLayers())) playNote(note, nextTime);
-    } else if (state.endingPhase === 'collapse' && scene < 2) {
-      // Familiar instruments thin out and fall in pitch, then leave room for silence.
-      for (const note of notesAtStep(step, scene === 0 ? 3 : 1))
-        playNote({ ...note, note: note.note - (scene === 0 ? 0 : 12), gain: note.gain * 0.45 }, nextTime);
+    const level = anomalyLevel(state);
+    if (state.endingPhase !== 'cleared' && state.collapseElapsedMs < 10_000) {
+      const stuck = level >= 3 && step % 16 >= 10;
+      const scoreStep = stuck ? Math.floor(step / 16) * 16 + 10 : step;
+      for (const note of notesAtStep(scoreStep, getMusicLayers())) {
+        const detune = level >= 2 ? Math.sin(step * 0.7) * level * 0.12 : level === 1 && step % 47 === 0 ? -0.3 : 0;
+        playNote({ ...note, note: note.note + detune, gain: note.gain * (level >= 4 ? 0.55 : 1) }, nextTime);
+      }
     }
     step += 1; nextTime += 60 / BPM / 2;
   }

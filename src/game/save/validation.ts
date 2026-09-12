@@ -1,4 +1,4 @@
-import { COLLAPSE_DURATION_MS } from '../logic/loop';
+import { COLLAPSE_DURATION_MS, SYNC_SETTLE_MS } from '../logic/loop';
 import {
     SAVE_V1_FACILITY_IDS,
     type SaveData,
@@ -6,6 +6,7 @@ import {
     type SavedFacilityCountsV1,
     type SavedGameStateV1,
     type SaveDataV2,
+    type SaveDataV3,
   } from "./types";
   
   type UnknownRecord = Record<string, unknown>;
@@ -164,7 +165,7 @@ import {
   export function parseCurrentSaveData(
     value: unknown,
   ): SaveData | null {
-    return parseSaveDataV3(value);
+    return parseSaveDataV4(value);
   }
 
 function isIdList(value: unknown): value is string[] {
@@ -191,7 +192,7 @@ export function parseSaveDataV2(value: unknown): SaveDataV2 | null {
   } };
 }
 
-export function parseSaveDataV3(value: unknown): SaveData | null {
+export function parseSaveDataV3(value: unknown): SaveDataV3 | null {
   if (!isRecord(value) || value.schemaVersion !== 3 || !isRecord(value.game)
     || Object.keys(value.game).length !== 10) return null;
   const { endingPhase, collapseElapsedMs, ...legacy } = value.game;
@@ -203,4 +204,19 @@ export function parseSaveDataV3(value: unknown): SaveData | null {
   if (endingPhase === 'cleared' && collapseElapsedMs !== COLLAPSE_DURATION_MS) return null;
   return { schemaVersion: 3, savedAtMs: parsed.savedAtMs, game: { ...parsed.game,
     endingPhase, collapseElapsedMs } };
+}
+
+export function parseSaveDataV4(value: unknown): SaveData | null {
+  if (!isRecord(value) || value.schemaVersion !== 4 || !isRecord(value.game)
+    || Object.keys(value.game).length !== 12) return null;
+  const { syncCount, syncElapsedMs, ...previous } = value.game;
+  const parsed = parseSaveDataV3({ schemaVersion: 3, savedAtMs: value.savedAtMs, game: previous });
+  if (!parsed || !isFiniteNonNegativeInteger(syncCount) || syncCount > 3
+    || syncCount > parsed.game.facilityCounts.global_freshness_sync
+    || !isFiniteNonNegativeNumber(syncElapsedMs) || syncElapsedMs > SYNC_SETTLE_MS) return null;
+  if (syncCount === 0 && syncElapsedMs !== 0) return null;
+  if (parsed.game.endingPhase === 'playing' && syncCount === 3) return null;
+  // Legacy v3 collapse/clear records can have fewer than three devices; preserve them.
+  if (parsed.game.endingPhase !== 'playing' && syncCount === 0) return null;
+  return { schemaVersion: 4, savedAtMs: parsed.savedAtMs, game: { ...parsed.game, syncCount, syncElapsedMs } };
 }
