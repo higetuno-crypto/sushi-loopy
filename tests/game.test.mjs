@@ -56,10 +56,10 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   store.setState({ purchasedUpgradeIds: ['warm_hands'] });
   assert.equal(selectTapGain(store.getState()), 2);
   store.getState().setDebugFastClick(true);
-  assert.equal(selectTapGain(store.getState()), 10_000);
+  assert.equal(selectTapGain(store.getState()), 100_000);
   store.getState().tapSushi();
-  assert.equal(store.getState().sushi, 10_000);
-  assert.equal(store.getState().totalSushiEarned, 10_000);
+  assert.equal(store.getState().sushi, 100_000);
+  assert.equal(store.getState().totalSushiEarned, 100_000);
   assert.equal(store.getState().totalClicks, 1);
   assert.equal(click(store.getState()), 2);
   assert.equal(sps(store.getState()), 0);
@@ -69,7 +69,7 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   assert.equal('setDebugFastClick' in saved.game, false);
   store.getState().setDebugFastClick(false);
   store.getState().tapSushi();
-  assert.equal(store.getState().sushi, 10_002);
+  assert.equal(store.getState().sushi, 100_002);
 });
 
 test('registries: unique stable IDs, 9 facility achievements + 100 clicks, valid rewards and references', () => {

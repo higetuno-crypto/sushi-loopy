@@ -28,7 +28,7 @@ type GameActions = {
 export type GameStore = GameState & GameActions;
 // Runtime-only override: never part of GameState or a save snapshot.
 export const selectTapGain = (state: GameStore): number =>
-  state.debugFastClick ? 10_000 : selectSushiPerClick(state);
+  state.debugFastClick ? 100_000 : selectSushiPerClick(state);
 const safeAdd = (a: number, b: number) => Math.min(a + b, Number.MAX_VALUE);
 
 export const useGameStore = create<GameStore>()((set) => ({
