@@ -30,7 +30,7 @@ export interface FacilityDefinition {
 
 export type EndingPhase = 'playing' | 'collapse' | 'cleared';
 
-export interface GameState {
+export interface RunState {
   syncCount: number;
   syncElapsedMs: number;
   endingPhase: EndingPhase;
@@ -56,6 +56,10 @@ export interface GameState {
   unlockedAchievementIds: string[];
   purchasedUpgradeIds: string[];
   seenNewsIds: string[];
+}
+
+export interface GameState extends RunState {
+  previousRun: RunState | null;
 }
 
 export interface MetaState {

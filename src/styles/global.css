@@ -314,3 +314,16 @@ html[data-motion="off"] [data-anomaly] .world-surface * { animation:none!importa
 @media (max-width:650px) { .fractured .experience-controls { padding:5px 8px; gap:4px; } .fractured .save-area { font-size:11px; } }
 
 .surviving-sushi:focus-visible { outline:1px solid #697866; outline-offset:4px; border-radius:50%; }
+
+/* The paper follows the player browsing facilities; the last run stays folded at the bottom. */
+.news-ticker { position:sticky; top:0; z-index:70; background:var(--paper); box-shadow:0 5px 12px #273e430c; padding:10px 12px; }
+html { scroll-padding-top:calc(var(--news-height,72px) + 12px); }
+.previous-run-record { margin-top:18px; padding:12px 0; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+.previous-run-record summary { cursor:pointer; padding:5px 0; }
+.previous-run-record dl { display:flex; flex-wrap:wrap; gap:24px; margin:20px 0; }
+.previous-run-record dt { font-size:11px; margin-bottom:6px; }
+.previous-run-record dd { margin:0; color:var(--ink); font-size:18px; font-variant-numeric:tabular-nums; }
+.previous-run-record ul { list-style:none; padding:0; max-width:480px; }
+.previous-run-record li { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); }
+@media (min-width:851px) { .counter-stage { top:calc(var(--news-height,72px) + 16px); } }
+@media (max-width:650px) { .news-ticker { min-height:62px; gap:10px; padding:9px 10px; } .news-ticker p { font-size:12px; line-height:1.65; } .news-label { font-size:11px; white-space:nowrap; } }

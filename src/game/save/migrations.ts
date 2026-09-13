@@ -2,7 +2,7 @@ import {
     CURRENT_SCHEMA_VERSION,
     type SaveData,
   } from "./types";
-  import { parseSaveDataV1, parseSaveDataV2, parseSaveDataV3, parseCurrentSaveData } from "./validation";
+  import { parseSaveDataV1, parseSaveDataV2, parseSaveDataV3, parseSaveDataV4, parseCurrentSaveData } from "./validation";
   import { createInitialGameState } from '../state/initialState';
   import { resolveAchievements } from '../logic/progression';
   
@@ -75,7 +75,7 @@ import {
       case 1: {
         const old = parseSaveDataV1(value);
         if (!old) return null;
-        return { schemaVersion: 4, savedAtMs: old.savedAtMs,
+        return { schemaVersion: 5, savedAtMs: old.savedAtMs,
           game: resolveAchievements({ ...createInitialGameState(), ...old.game,
             facilityCounts: { ...old.game.facilityCounts }, totalSushiEarned: old.game.sushi,
           }),
@@ -84,17 +84,25 @@ import {
       case 2: {
         const old = parseSaveDataV2(value);
         if (!old) return null;
-        return { schemaVersion: 4, savedAtMs: old.savedAtMs,
-          game: { ...old.game, endingPhase: 'playing', collapseElapsedMs: 0, syncCount: 0, syncElapsedMs: 0 } };
+        return { schemaVersion: 5, savedAtMs: old.savedAtMs,
+          game: { ...old.game, endingPhase: 'playing', collapseElapsedMs: 0, syncCount: 0, syncElapsedMs: 0, previousRun: null } };
       }
       case 3: {
         const old = parseSaveDataV3(value);
         if (!old) return null;
-        return { schemaVersion: 4, savedAtMs: old.savedAtMs, game: { ...old.game,
+        return migrateSaveData({ schemaVersion: 4, savedAtMs: old.savedAtMs, game: { ...old.game,
           syncCount: old.game.endingPhase === 'playing' ? 0 : Math.min(3, old.game.facilityCounts.global_freshness_sync),
-          syncElapsedMs: 0 } };
+          syncElapsedMs: 0 } });
       }
-      case 4: return parseCurrentSaveData(value);
+      case 4: {
+        const old = parseSaveDataV4(value);
+        if (!old) return null;
+        return { schemaVersion: 5, savedAtMs: old.savedAtMs, game:
+          old.game.endingPhase === 'cleared'
+            ? { ...createInitialGameState(), previousRun: old.game }
+            : { ...old.game, previousRun: null } };
+      }
+      case 5: return parseCurrentSaveData(value);
   
       default: {
         return null;

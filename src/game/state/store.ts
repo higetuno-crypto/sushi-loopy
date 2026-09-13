@@ -1,5 +1,6 @@
 // Actions commit progress atomically, before checkpoint tracking snapshots it.
 import { pendingSynchronization, canBuySyncDevice, canFinishFirstRun, COLLAPSE_DURATION_MS, SYNC_SETTLE_MS } from '../logic/loop';
+import { createRunSnapshot } from '../save/snapshot';
 import { create } from 'zustand';
 
 import type { FacilityId, GameState } from '../types';
@@ -13,7 +14,6 @@ import { selectSushiPerClick, selectTotalSushiPerSecond } from './selectors';
 
 type GameActions = {
   synchronize: () => void;
-  replaySynchronization: () => void;
   finishFirstRun: () => void;
   debugFastClick: boolean;
   setDebugFastClick: (enabled: boolean) => void;
@@ -36,20 +36,15 @@ export const useGameStore = create<GameStore>()((set) => ({
   debugFastClick: false,
   synchronize: () => set(state => pendingSynchronization(state)
     ? { syncCount: state.syncCount + 1, syncElapsedMs: 0 } : state),
-  replaySynchronization: () => set(state => {
-    if (state.endingPhase !== 'cleared') return state;
-    const count = state.facilityCounts.global_freshness_sync;
-    const facility = FACILITIES.find(f => f.id === 'global_freshness_sync')!;
-    const refund = facility.basePrice * (facility.growthRate ** count - 1) / (facility.growthRate - 1);
-    return { endingPhase: 'playing', collapseElapsedMs: 0, syncCount: 0, syncElapsedMs: 0,
-      sushi: safeAdd(state.sushi, Math.round(refund)), debugFastClick: false,
-      facilityCounts: { ...state.facilityCounts, global_freshness_sync: 0 } };
+  finishFirstRun: () => set(state => {
+    if (!canFinishFirstRun(state)) return state;
+    const previousRun = createRunSnapshot({ ...state,
+      endingPhase: 'cleared', sushi: safeAdd(state.sushi, 1),
+      totalSushiEarned: safeAdd(state.totalSushiEarned, 1),
+      totalClicks: Math.min(state.totalClicks + 1, Number.MAX_SAFE_INTEGER),
+    });
+    return { ...createInitialGameState(), previousRun, debugFastClick: false };
   }),
-  finishFirstRun: () => set(state => canFinishFirstRun(state) ? {
-    endingPhase: 'cleared', sushi: safeAdd(state.sushi, 1),
-    totalSushiEarned: safeAdd(state.totalSushiEarned, 1),
-    totalClicks: Math.min(state.totalClicks + 1, Number.MAX_SAFE_INTEGER),
-  } : state),
   setDebugFastClick: enabled => set({ debugFastClick: enabled }),
 
   tapSushi: () => {

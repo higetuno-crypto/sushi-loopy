@@ -11,27 +11,27 @@
     "domNodes": 207,
     "resources": [
       {
-        "name": "/assets/index-4tRk2yf4.js",
-        "bytes": 78214,
-        "duration": 119.40000003576279
+        "name": "/assets/index-Ciwt--Ih.js",
+        "bytes": 78074,
+        "duration": 27.799999952316284
       },
       {
-        "name": "/assets/index-IggucGWv.css",
-        "bytes": 7454,
-        "duration": 25.900000035762787
+        "name": "/assets/index-UW3q6_4Q.css",
+        "bytes": 7651,
+        "duration": 23
       },
       {
         "name": "/assets/salmon-hero-v1.webp",
         "bytes": 49046,
-        "duration": 3.600000023841858
+        "duration": 4.300000011920929
       },
       {
         "name": "/favicon.svg",
         "bytes": 483,
-        "duration": 3.399999976158142
+        "duration": 6.699999988079071
       }
     ],
-    "longTasks": 3,
-    "maxLongTaskMs": 211
+    "longTasks": 5,
+    "maxLongTaskMs": 798
   }
 }

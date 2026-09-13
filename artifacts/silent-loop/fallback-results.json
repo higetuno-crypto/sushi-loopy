@@ -1,0 +1,10 @@
+[
+  {
+    "scenario": "WebGL unavailable",
+    "status": "PASS"
+  },
+  {
+    "scenario": "WebGL context lost",
+    "status": "PASS"
+  }
+]

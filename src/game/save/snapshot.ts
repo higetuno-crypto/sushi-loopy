@@ -1,4 +1,4 @@
-import type { GameState } from "../types";
+import type { GameState, RunState } from "../types";
 import {
   CURRENT_SCHEMA_VERSION,
   type SaveData,
@@ -22,31 +22,23 @@ export type SaveSnapshot = Omit<
  * currentPrice / SUSHI/sec / Store action
  * などは保存しない。
  */
-export function createSaveSnapshot(
-  state: GameState,
-): SaveSnapshot {
+export function createRunSnapshot(state: RunState): RunState {
   return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-
-    game: {
-      syncCount: state.syncCount,
-      syncElapsedMs: state.syncElapsedMs,
-      endingPhase: state.endingPhase,
-      collapseElapsedMs: state.collapseElapsedMs,
-      sushi: state.sushi,
-
-      facilityCounts: {
-        ...state.facilityCounts,
-      },
-
-      runPlayTimeMs: state.runPlayTimeMs,
-      totalClicks: state.totalClicks,
-      totalSushiEarned: state.totalSushiEarned,
-      unlockedAchievementIds: [...state.unlockedAchievementIds],
-      purchasedUpgradeIds: [...state.purchasedUpgradeIds],
-      seenNewsIds: [...state.seenNewsIds],
-    },
+    syncCount: state.syncCount, syncElapsedMs: state.syncElapsedMs,
+    endingPhase: state.endingPhase, collapseElapsedMs: state.collapseElapsedMs,
+    sushi: state.sushi, facilityCounts: { ...state.facilityCounts },
+    runPlayTimeMs: state.runPlayTimeMs, totalClicks: state.totalClicks,
+    totalSushiEarned: state.totalSushiEarned,
+    unlockedAchievementIds: [...state.unlockedAchievementIds],
+    purchasedUpgradeIds: [...state.purchasedUpgradeIds], seenNewsIds: [...state.seenNewsIds],
   };
+}
+
+export function createSaveSnapshot(state: GameState): SaveSnapshot {
+  return { schemaVersion: CURRENT_SCHEMA_VERSION, game: {
+    ...createRunSnapshot(state),
+    previousRun: state.previousRun ? createRunSnapshot(state.previousRun) : null,
+  } };
 }
 
 /** Shared by startup, Save Code and checkpoints. Clone all collections. */

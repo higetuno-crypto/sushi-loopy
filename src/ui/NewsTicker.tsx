@@ -1,9 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { chooseNews } from '../game/logic/progression';
 import { meetsCondition } from '../game/logic/conditions';
 import { useGameStore } from '../game/state/store';
 
 export function NewsTicker() {
+  const surface = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const update = () => document.documentElement.style.setProperty('--news-height', `${Math.ceil(element.getBoundingClientRect().height)}px`);
+    update();
+    const observer = new ResizeObserver(update); observer.observe(element);
+    return () => { observer.disconnect(); document.documentElement.style.removeProperty('--news-height'); };
+  }, []);
   const [news, setNews] = useState(() => chooseNews(useGameStore.getState()));
   const initialNews = useRef(news);
   useEffect(() => {
@@ -32,7 +41,7 @@ export function NewsTicker() {
     return () => { window.clearInterval(timer); unsubscribe(); };
   }, []);
   const valid = useGameStore(state => !news || meetsCondition(state, news.condition));
-  return <aside className="news-ticker" aria-label="寿司新聞">
+  return <aside ref={surface} className="news-ticker" aria-label="寿司新聞">
     <span className="news-label">寿司新聞 <span>↗</span></span>
     <p key={valid ? news?.id : 'restored'}>{valid ? news?.text : 'のれんを掛け直しています。次のお知らせをお待ちください。'}</p>
     <span className="news-edition">{news?.category}</span>

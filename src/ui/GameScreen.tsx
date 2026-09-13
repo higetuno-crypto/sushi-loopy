@@ -1,8 +1,8 @@
-import { EndingScreen } from './EndingScreen';
+import { PreviousRunRecord } from './PreviousRunRecord';
 import { anomalyLevel } from '../game/logic/loop';
 import { Synchronization } from './Synchronization';
 import { WorldDamage } from './WorldDamage';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { FacilityList } from './FacilityList';
 import { ResourcePanel } from './ResourcePanel';
 import { SaveTools } from './SaveTools';
@@ -57,25 +57,27 @@ export function GameScreen() {
   const phase = useGameStore(state => state.endingPhase);
   const level = useGameStore(anomalyLevel);
   const playing = phase === 'playing';
-  const cleared = phase === 'cleared';
+  const previous = useGameStore(state => state.previousRun);
+  const runKey = previous ? `${previous.runPlayTimeMs}:${previous.totalClicks}:${previous.totalSushiEarned}` : 'initial';
+  useEffect(() => { if (previous) window.scrollTo({ top: 0, behavior: 'instant' }); }, [previous]);
   return <main className={`game-screen phase-${phase}`} data-anomaly={level}>
     <div className="world-surface">
       <header className="game-header">
         <a className="wordmark" href="#counter" aria-label="Sushi Loopy"><span className="logo-seal">すし</span><span>Sushi <em>Loopy</em><small>ひとつ握る。世界がまわる。</small></span></a>
-        <div className="header-note"><span className="status-dot" /> {cleared ? '本日の営業は、終了しました。' : '本日も、のんびり営業中。'}<small>一貫からはじまる、小さな物語。</small></div>
+        <div className="header-note"><span className="status-dot" /> 本日も、のんびり営業中。<small>一貫からはじまる、小さな物語。</small></div>
       </header>
-      {!cleared && <NewsTicker />}
     </div>
+    <NewsTicker />
     <div className="experience-controls" data-preserve-ui><SoundControl /><MotionControl /></div>
-    {!cleared && <div className="world-surface game-layout" id="counter" inert={!playing}>
+    <div key={runKey} className="world-surface game-layout" id="counter" inert={!playing}>
       <CounterStage />
       <div className="management-column"><FacilityList /><ContentPanel /></div>
-    </div>}
-    {cleared && <EndingScreen />}
-    {!cleared && <WorldDamage />}
+    </div>
+    <WorldDamage key={phase} />
     <Synchronization />
     <footer className="game-footer"><span>握る。まわる。ちょっと、ひと息。</span><small>SUSHI LOOPY</small></footer>
     <div className="save-area" data-preserve-ui><SaveTools /><FacilityCheckpointTools /></div>
-    {playing && <><AchievementToast /><MobileTapDock /></>}
+    <PreviousRunRecord key={`record:${runKey}`} />
+    {playing && <><AchievementToast key={`toast:${runKey}`} /><MobileTapDock key={`dock:${runKey}`} /></>}
   </main>;
 }

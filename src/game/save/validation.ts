@@ -7,6 +7,7 @@ import {
     type SavedGameStateV1,
     type SaveDataV2,
     type SaveDataV3,
+    type SaveDataV4,
   } from "./types";
   
   type UnknownRecord = Record<string, unknown>;
@@ -165,7 +166,7 @@ import {
   export function parseCurrentSaveData(
     value: unknown,
   ): SaveData | null {
-    return parseSaveDataV4(value);
+    return parseSaveDataV5(value);
   }
 
 function isIdList(value: unknown): value is string[] {
@@ -206,7 +207,7 @@ export function parseSaveDataV3(value: unknown): SaveDataV3 | null {
     endingPhase, collapseElapsedMs } };
 }
 
-export function parseSaveDataV4(value: unknown): SaveData | null {
+export function parseSaveDataV4(value: unknown): SaveDataV4 | null {
   if (!isRecord(value) || value.schemaVersion !== 4 || !isRecord(value.game)
     || Object.keys(value.game).length !== 12) return null;
   const { syncCount, syncElapsedMs, ...previous } = value.game;
@@ -219,4 +220,19 @@ export function parseSaveDataV4(value: unknown): SaveData | null {
   // Legacy v3 collapse/clear records can have fewer than three devices; preserve them.
   if (parsed.game.endingPhase !== 'playing' && syncCount === 0) return null;
   return { schemaVersion: 4, savedAtMs: parsed.savedAtMs, game: { ...parsed.game, syncCount, syncElapsedMs } };
+}
+
+export function parseSaveDataV5(value: unknown): SaveData | null {
+  if (!isRecord(value) || value.schemaVersion !== 5 || !isRecord(value.game)
+    || Object.keys(value.game).length !== 13) return null;
+  const { previousRun, ...current } = value.game;
+  const parsed = parseSaveDataV4({ schemaVersion: 4, savedAtMs: value.savedAtMs, game: current });
+  if (!parsed || parsed.game.endingPhase === 'cleared') return null;
+  let record: SaveDataV4 | null = null;
+  if (previousRun !== null) {
+    record = parseSaveDataV4({ schemaVersion: 4, savedAtMs: value.savedAtMs, game: previousRun });
+    if (!record || record.game.endingPhase !== 'cleared') return null;
+  }
+  return { schemaVersion: 5, savedAtMs: parsed.savedAtMs,
+    game: { ...parsed.game, previousRun: record?.game ?? null } };
 }

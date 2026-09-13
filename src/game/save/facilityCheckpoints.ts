@@ -404,7 +404,10 @@ restoreFacilityCheckpoint(
    * Zustand setState は partial merge なので
    * tapSushi / buyFacility 等の action は残る。
    */
-  useGameStore.setState(createHydratedGameState(saveData));
+  const hydrated = createHydratedGameState(saveData);
+  useGameStore.setState({ ...hydrated,
+    previousRun: useGameStore.getState().previousRun ?? hydrated.previousRun,
+  });
 
   /**
    * Offline Production は一切行わない。

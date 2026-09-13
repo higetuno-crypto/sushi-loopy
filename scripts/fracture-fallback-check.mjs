@@ -13,6 +13,6 @@ try{for(const blocked of[true,false]){
  if(!blocked){await page.locator('.world-fracture.is-rendered canvas').waitFor();await page.locator('.world-fracture canvas').evaluate(canvas=>canvas.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());}
  await page.locator('.fracture-fallback').waitFor();assert.equal(await page.locator('.world-fracture canvas').count(),0);
  await page.getByRole('button',{name:'寿司を握る',exact:true}).waitFor({timeout:15000});await page.getByRole('button',{name:'寿司を握る',exact:true}).click();
- await page.getByText('1周目 CLEAR',{exact:true}).waitFor();assert.equal(await page.locator('.world-fracture').count(),0);
+ await page.getByRole('button',{name:'寿司をタップする'}).waitFor();assert.equal(await page.locator('.resource-value').textContent(),'0');assert.equal(await page.locator('.world-fracture').count(),0);
  results.push({scenario:blocked?'WebGL unavailable':'WebGL context lost',status:'PASS'});await context.close();
-}await writeFile('artifacts/sync-v2/fallback-results.json',JSON.stringify(results,null,2));console.log(results);}finally{await browser.close();}
+}await writeFile('artifacts/silent-loop/fallback-results.json',JSON.stringify(results,null,2));console.log(results);}finally{await browser.close();}

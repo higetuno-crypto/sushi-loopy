@@ -1,6 +1,6 @@
-# 同期装置からの段階的崩壊 / 2026-09-12
+# 同期装置からの段階的崩壊と無言の周回 / 2026-09-13
 
-前版の「1台購入→結末予告→別画面で28秒の説明→最後の一貫」を置き換えた。普段のお店の中で、設備を追加するほど状態が崩れる。専用の物語画面・章立て・崩壊までのカウントダウンは出さない。
+前版の「1台購入→結末予告→別画面で28秒の説明→最後の一貫」を置き換えた。普段のお店の中で、設備を追加するほど状態が崩れる。専用の物語画面・章立て・崩壊までのカウントダウンは出さない。最後の一押し後も説明せず、初期状態のお店へ即座に戻す。
 
 ## 購入と進行
 
@@ -13,7 +13,7 @@
 | 3台目の購入 | 確認を挟まず異常最大。通常購入・生産停止 |
 | その6秒後 | 同期応答エラー。UIをテクスチャ化して凍結 |
 | 10秒以降 | 画面の文字・寿司・設備が三角形の断片として剥がれ、回転しながら落ちる |
-| 28秒後 | 寿司と「握る」だけが残る。1 SUSHI・1クリックを加算してCLEAR |
+| 28秒後 | 寿司と「握る」だけが残る。押すと前回の記録へ1 SUSHI・1クリックを加算し、表示中のお店は0 SUSHI・設備0・強化/実績なしの初期状態へ戻る |
 
 同期保留時は後から再開可能。未接続装置が残る間は次の同期装置購入を止めて確認を飛ばせないようにする。接続処理中も他設備の購入とタップは可能。施設の既存ID・価格は変更しない。
 
@@ -26,23 +26,29 @@
 - 動きを止める設定では回転・落下を行わず、静止した裂け目と欠落を表示。WebGL不可・context loss・capture失敗/timeoutでも暗転による代替経路でクリアできる。
 - 終了/復元時はrenderer、geometry、material、texture、RAF、listenerを破棄。音・動き・Save Code/checkpoint操作は壊れる面から分離する。
 
+## 無言の再開と新聞
+
+「CLEAR」「1周目」「営業終了」、購入前へ戻るボタンや確認は表示しない。最後の「握る」から直接、最初のお店の先頭へ戻す。デバッグはOFF、1クリックは1 SUSHI。新しい握り始めから普通に遊べ、再読込してもその新しい進行を維持する。
+
+直前の記録はページ最下部、Save Code/checkpointのさらに下に「前回のルーピー」として折り畳む。自動で開かず、バッジ・通知・ハイライトも付けない。開くと世界同期までの時間、手で握った回数、作ったSUSHI、設備の一覧を見られる。
+
+寿司新聞はmain直下のsticky要素として上部へ固定。短いヘッダー内に閉じ込めず、設備やフッターまでスクロールしても残る。高さに合わせてPCのカウンターとアンカーの余白を調整。モバイルの下部タップボタンと同時に使える。崩壊時は新聞も同じ画面の一部として描画される。
+
 ## 保存
 
-Save v4に`syncCount`と`syncElapsedMs`を追加。v1/v2/v3の固定schemaは維持し、旧Main Saveは初回更新前に該当`backup-vN`へ保存する。キー・Save Code prefix・施設IDは変更しない。
+Save v5に非再帰の`previousRun`を追加。現周回の数値と前回の全Run状態を分けて保存する。最後の一押しで両方を一括更新するため、0への初期化と前回記録の保存に中間状態を作らない。履歴は前回分1件だけで、周回を重ねても入れ子で肥大化しない。
 
-旧v3の進行中/クリア状態もそのまま復元する。そのため旧記録では崩壊済みでも装置が1台のケースを受理する。現在の通常操作では3台目購入からのみ崩壊へ進む。旧版で複数台所持していた場合は未接続分を順に同期でき、2回の同期後の次の購入で崩壊する。
+v1〜v4の固定schemaを維持。旧Main Saveは初回更新前に`backup-vN`へ退避する。旧クリア済み状態は前回の記録へ移し、現在のRunは初期状態にする。進行中のRunは進行を維持する。
 
-同期の確定・崩壊開始・クリアは既存Auto Saveのwriter leaseと失敗表示を通して即時保存。途中は5秒保存/pagehide保存。オフラインで同期/崩壊の時計は進めない。同期1〜2回の営業中はオフライン生産可能、崩壊/クリア後は0。
-
-「同期装置の購入前から試す」は確認付き。`sushi-loopy.before-sync-replay`にクリア時Saveを保存して読み戻し一致を確認できた場合だけ再体験へ戻る。同期装置の所持数を0にして購入費用を返却し、他施設・実績・累計獲得は維持する。Save Codeは再体験前にも書き出せる。自動リセットは行わない。
+保存キー・Save Code prefix・施設IDは維持。同期確定・崩壊・無言の周回をAuto Saveのwriter leaseと失敗表示で保存する。保存失敗時は従来の警告が表示される。オフラインで同期/崩壊は進まない。施設checkpointの明示的復元では現在のRunを巻き戻し、前回の記録は維持。Save Codeでは現Runと前回記録を一緒に書き出し/復元する。
 
 ## 検証と証跡
 
-- `npm test`: 37件PASS（同期の購入/確定の順序、タイミング、v1〜v3移行、途中復帰、1回だけのクリア、offline、保存競合、再体験）。
+- `npm test`: 40件PASS（同期の購入/確定の順序、タイミング、v1〜v4移行、途中復帰、最後の操作の重複防止、offline、保存競合、無言の周回、前回記録、非再帰検証）。
 - `npm run build`（型確認含む）/`npm run lint`: PASS。崩壊専用chunkは約725KB、gzip約178KBでサイズ警告あり。通常表示は約249KB、gzip約79KBで、崩壊chunkは初期ロードしない。
 - `scripts/browser-check.mjs`: 既存の通常購入、タップ、実績、強化、音、Save Code、checkpoint、mobile、旧save復元の回帰PASS。
-- `scripts/ending-check.mjs`: build previewでPC 1280×900 / mobile 390×844の通し検証PASS。確認の保留/再開、2回の同期、実時間の異常拡大、3台目購入、WebGL描画、途中reload、clear/reload、再体験を確認。`artifacts/sync-v2/results.json`、画面画像、`desktop-flow.webm`/`mobile-flow.webm`。
-- `scripts/fracture-fallback-check.mjs`: WebGL無効・context lossの両経路で最後の操作→CLEARまでPASS。`artifacts/sync-v2/fallback-results.json`。
+- `scripts/ending-check.mjs`: build previewでPC 1280×900 / mobile 390×844の通し検証PASS。確認の保留/再開、2回の同期、実時間の異常拡大、3台目購入、WebGL描画、途中reload、無言の初期化、最初の1 SUSHI、reload、折り畳まれた前回記録と固定新聞を確認。`artifacts/silent-loop/results.json`、画面画像、`desktop-flow.webm`/`mobile-flow.webm`。
+- `scripts/fracture-fallback-check.mjs`: WebGL無効・context lossの両経路で最後の操作→初期状態までPASS。`artifacts/silent-loop/fallback-results.json`。
 - mobileはEdgeのエミュレーションで、実機Safariではない。新規プレイからの長時間バランスと面白さは機能テストで代替しない。
 
 Three.js APIの参照: https://threejs.org/docs/ （CanvasTexture / BufferGeometry / WebGLRenderer）。
