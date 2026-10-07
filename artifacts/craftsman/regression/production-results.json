@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "browser": "installed chrome, mobile touch emulation, CPU 4x slowdown; not physical iPhone/Safari",
+  "errors": [],
+  "origins": [
+    "http://127.0.0.1:4180"
+  ],
+  "metrics": {
+    "width": 390,
+    "scrollWidth": 390,
+    "domNodes": 356,
+    "resources": [
+      {
+        "name": "/assets/index-i2hG-WcP.js",
+        "bytes": 81780,
+        "duration": 258.40000009536743
+      },
+      {
+        "name": "/assets/index-C6Xv4Pee.css",
+        "bytes": 8341,
+        "duration": 75.80000019073486
+      },
+      {
+        "name": "/assets/salmon-hero-v1.webp",
+        "bytes": 49046,
+        "duration": 97.79999995231628
+      },
+      {
+        "name": "/assets/salmon-hero-v1-small.webp",
+        "bytes": 14294,
+        "duration": 84.90000009536743
+      },
+      {
+        "name": "/favicon.svg",
+        "bytes": 483,
+        "duration": 3.5
+      }
+    ],
+    "longTasks": 4,
+    "maxLongTaskMs": 1139
+  }
+}

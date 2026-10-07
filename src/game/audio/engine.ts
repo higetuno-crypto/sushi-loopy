@@ -19,6 +19,12 @@ export function getMusicLayers(): number {
   return 1 + Number(counts.craftsman > 0) + Number(counts.conveyor_sushi > 0) + Number(counts.auto_sushi_machine > 0) + Number(counts.marine_food_plant > 0);
 }
 
+/** The score's clock, including its scheduling lead; visual work follows the same beat. */
+export function getMusicTimeMs(): number | null {
+  return enabled && context?.state === 'running'
+    ? Math.max(0, (context.currentTime - nextTime + step * 60 / BPM / 2) * 1000) : null;
+}
+
 function playNote(note: ScoreNote, at: number) {
   if (!context || !master || active.size >= 40) return;
   const oscillator = createVoice(context, master, note, at);

@@ -22,6 +22,8 @@ export function FacilityItem({ facility }: { facility: FacilityDefinition }) {
     buy(facility.id);
     if (useGameStore.getState().facilityCounts[facility.id] > before) {
       playPurchase();
+      // A UI receipt: loading/importing a save never replays the welcome.
+      if (facility.id === 'craftsman' && before === 0) window.dispatchEvent(new Event('sushi-loopy:craftsman-arrived'));
       setCelebration(value => value + 1);
     }
   };

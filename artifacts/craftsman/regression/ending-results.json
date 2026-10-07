@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "device": "desktop",
+      "status": "PASS",
+      "renderer": "Three.js / WebGL",
+      "reducedMotion": false
+    },
+    {
+      "device": "mobile",
+      "status": "PASS",
+      "renderer": "Three.js / WebGL",
+      "reducedMotion": true
+    }
+  ],
+  "errors": []
+}

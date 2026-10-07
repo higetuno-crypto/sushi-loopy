@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "url": "http://127.0.0.1:5178/",
+  "browser": "isolated installed Chrome; physical iPhone/Safari untested",
+  "results": [
+    {
+      "width": 390,
+      "audioClockTested": true,
+      "checks": "first purchase, real motion, stop/reduced/override, save reload, second purchase, overflow, console"
+    },
+    {
+      "width": 320,
+      "audioClockTested": true,
+      "checks": "first purchase, real motion, stop/reduced/override, save reload, second purchase, overflow, console"
+    },
+    {
+      "width": 768,
+      "audioClockTested": true,
+      "checks": "first purchase, real motion, stop/reduced/override, save reload, second purchase, overflow, console"
+    },
+    {
+      "width": 1024,
+      "audioClockTested": true,
+      "checks": "first purchase, real motion, stop/reduced/override, save reload, second purchase, overflow, console"
+    },
+    {
+      "width": 1440,
+      "audioClockTested": true,
+      "checks": "first purchase, real motion, stop/reduced/override, save reload, second purchase, overflow, console"
+    }
+  ]
+}

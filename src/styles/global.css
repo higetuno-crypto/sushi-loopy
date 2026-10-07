@@ -159,17 +159,44 @@ a { color: inherit; }
 .sushi-drop { position:absolute; top:42%; z-index:3; font-size:35px; pointer-events:none; animation:sushi-drop .62s ease-in forwards; }
 .sushi-drop > span { display:block; width:44px; height:10px; margin:-9px auto 0; border:2px solid #769aab; border-radius:50%; background:#fefbf0; box-shadow:0 3px 0 #b8c9cc; }
 @keyframes sushi-drop { 0% { opacity:0; transform:translate3d(0,0,0) scale(.5) rotate(-12deg); } 25% { opacity:1; transform:translate3d(0,-45px,0) scale(1.1) rotate(8deg); } 80% { opacity:1; } 100% { opacity:0; transform:translate3d(15px,120px,0) scale(.85) rotate(20deg); } }
-.sushi-box { border:3px solid #cfb68b; border-radius:12px; background:#f5ead4; overflow:hidden; margin:0 0 18px; }
-.sushi-box-heading { padding:10px 10px 0; }
-.sushi-box-heading strong { font-size:12px; }
-.sushi-box-heading small { display:block; font-size:9px; color:var(--muted); margin-top:5px; }
-.sushi-box-facilities { display:flex; flex-wrap:wrap; gap:6px; padding:12px 8px; min-height:78px; }
-.sushi-box-facilities > p { margin:auto; font-size:11px; }
-.box-facility { flex:1 1 80px; max-width:130px; min-width:0; text-align:center; background:#fffcf5bb; border-radius:8px; padding:8px 4px; }
-.box-facility-icons { display:block; font-size:24px; animation:facility-arrive .5s ease-out; }
-.box-facility small { display:block; font-size:9px; margin:4px 0; }
-.box-facility b { font-size:10px; color:var(--green); }
-.sushi-box .conveyor-strip { margin:0; }
+.sushi-box { border:1px solid #d1c5ae; border-radius:8px; background:#f7f0e1; overflow:hidden; margin:0 0 18px; }
+.sushi-box-heading { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
+.sushi-box-heading strong { font-size:11px; font-weight:600; }
+.shop-state { font-size:9px; color:#586953; border-left:1px solid #d1c5ae; padding-left:12px; }
+.shop-scene { overflow:hidden; border-block:1px solid #d1c5ae; background:#ede3d0; }
+.shop-art { display:block; width:100%; height:auto; }
+.shop-lamplight { opacity:.25; transition:opacity 1.2s ease; }
+.is-working .shop-lamplight { opacity:1; }
+.shop-caption { margin:0; padding:12px 10px 8px; min-height:34px; text-align:center; font:12px/1.6 "Yu Mincho","Hiragino Mincho ProN",serif; color:#4d5945; }
+.sushi-box[data-arriving="true"] .shop-caption { color:#a24a32; }
+.sushi-box-facilities { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px; padding:0 12px 10px; }
+.box-facility { display:flex; align-items:center; gap:4px; min-width:0; }
+.box-facility-icons { display:block; font-size:13px; }
+.box-facility small { font-size:9px; }
+.box-facility b { font-size:10px; color:#506548; font-weight:500; }
+.shop-lane-heading { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-top:1px solid #ddd2bb; }
+.shop-lane-heading small,.shop-lane-heading span { font-size:9px; color:#586953; }
+.sushi-box .conveyor-strip { margin:0; height:38px; border-block:1px solid #b1bbab; background:#dee2d2; }
+.sushi-box .conveyor-strip > div { height:100%; align-items:center; }
+.sushi-box .conveyor-strip span { position:relative; height:32px; display:grid; place-items:center; font-size:inherit; }
+.sushi-box .conveyor-strip span::before { content:""; position:absolute; bottom:2px; width:38px; height:13px; border:1px solid #7c9687; border-radius:50%; background:#fffbec; box-shadow:0 2px #a1b4a3; }
+.sushi-box .conveyor-strip img { position:relative; width:32px; height:32px; object-fit:contain; transform:translateY(-3px); }
+.chef-body { animation:chef-body var(--work-cycle) ease-in-out infinite; transform-origin:319px 194px; }
+.chef-hand-left { animation:chef-left var(--work-cycle) ease-in-out infinite; transform-origin:275px 168px; }
+.chef-hand-right { animation:chef-right var(--work-cycle) ease-in-out infinite; transform-origin:361px 168px; }
+.chef-rice { animation:chef-rice var(--work-cycle) ease-in-out infinite; }
+.chef-serving { animation:chef-serve var(--work-cycle) cubic-bezier(.22,1,.36,1) infinite; }
+.chef-eyes { animation:chef-blink calc(var(--work-cycle) * 2) linear infinite; transform-origin:319px 118px; }
+.sushi-box[data-arriving="true"] .chef-entrance { animation:shop-enter 1s cubic-bezier(.22,1,.36,1) both; }
+.sushi-box[data-arriving="true"] .chef-hands { animation:shop-hands-enter .6s .45s ease-out both; }
+@keyframes shop-enter { from { opacity:0; transform:translateY(72px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shop-hands-enter { from { opacity:0; } to { opacity:1; } }
+@keyframes chef-body { 0%,25%,50%,100% { transform:translateY(0) rotate(0); } 12%,37% { transform:translateY(2px); } 68% { transform:translate(-3px,1px) rotate(-2deg); } 82% { transform:translateY(-1px); } }
+@keyframes chef-left { 0%,25%,50%,100% { transform:none; } 12%,37% { transform:translate(4px,2px) rotate(3deg); } 66%,72% { transform:translate(-37px,14px) rotate(-5deg); } 86% { transform:translate(-12px,3px); } }
+@keyframes chef-right { 0%,25%,50%,100% { transform:none; } 12%,37% { transform:translate(-4px,2px) rotate(-3deg); } 66%,72% { transform:translate(-36px,14px) rotate(4deg); } 86% { transform:translate(-10px,3px); } }
+@keyframes chef-rice { 0%,45% { opacity:1; transform:none; } 58% { opacity:1; transform:translate(-10px,0); } 63%,96% { opacity:0; transform:translate(-40px,10px); } 100% { opacity:1; transform:none; } }
+@keyframes chef-serve { 0%,56% { opacity:0; transform:translate(30px,-8px); } 70%,91% { opacity:1; transform:none; } 100% { opacity:0; transform:translate(-6px,0); } }
+@keyframes chef-blink { 0%,45%,48%,100% { transform:scaleY(1); } 46%,47% { transform:scaleY(.15); } }
 .conveyor-strip > div { width:200%; animation:none; transform:translate3d(0,0,0); }
 .conveyor-strip.is-open > div { animation:conveyor 12s linear infinite; will-change:transform; }
 .conveyor-strip span { flex:0 0 8.333333%; width:8.333333%; }

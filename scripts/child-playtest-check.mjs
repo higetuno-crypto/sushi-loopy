@@ -4,7 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import { setTimeout as wait } from 'node:timers/promises';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'C:/Users/higes/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const channel = process.env.SUSHI_BROWSER_CHANNEL || 'msedge';
+const browser = await chromium.launch({ channel, headless: true });
 const results = [];
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -55,7 +56,7 @@ try {
   results.push('purchase feedback and owned facilities; conveyor starts only after opening');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   assert.equal(await belt.evaluate(e => getComputedStyle(e).animationName), 'none');
-  assert.match(await page.locator('.sushi-box-heading').innerText(), /お皿がまわりはじめた/);
+  assert.match(await page.locator('.shop-lane-heading').innerText(), /お皿がまわりはじめた/);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   assert.equal(await button.evaluate(e => getComputedStyle(e).touchAction), 'none');
   assert.equal(await page.locator('.game-screen').evaluate(e => getComputedStyle(e).webkitUserSelect), 'none');
@@ -72,6 +73,6 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.deepEqual(errors, []);
   results.push('mobile dock, selection protection, reduced motion, no overflow or runtime errors');
-  await writeFile('artifacts/child-playtest-results.json', JSON.stringify({ status: 'PASS', browser: 'Edge mobile emulation; physical iPhone not tested', results, initialBeltTransform: transform }, null, 2));
+  await writeFile('artifacts/child-playtest-results.json', JSON.stringify({ status: 'PASS', browser: `${channel} mobile emulation; physical iPhone not tested`, results, initialBeltTransform: transform }, null, 2));
   console.log(results);
 } finally { await browser.close(); }
