@@ -60,6 +60,8 @@ export interface RunState {
 
 export interface GameState extends RunState {
   previousRun: RunState | null;
+  town: import('./logic/town').Town;
+  previousTown: import('./logic/town').Town | null;
 }
 
 export interface MetaState {

@@ -1,4 +1,5 @@
 import { COLLAPSE_DURATION_MS, SYNC_SETTLE_MS } from '../logic/loop';
+import { parseTown } from '../logic/town';
 import {
     SAVE_V1_FACILITY_IDS,
     type SaveData,
@@ -8,6 +9,7 @@ import {
     type SaveDataV2,
     type SaveDataV3,
     type SaveDataV4,
+    type SaveDataV5,
   } from "./types";
   
   type UnknownRecord = Record<string, unknown>;
@@ -166,7 +168,7 @@ import {
   export function parseCurrentSaveData(
     value: unknown,
   ): SaveData | null {
-    return parseSaveDataV5(value);
+    return parseSaveDataV6(value);
   }
 
 function isIdList(value: unknown): value is string[] {
@@ -222,7 +224,7 @@ export function parseSaveDataV4(value: unknown): SaveDataV4 | null {
   return { schemaVersion: 4, savedAtMs: parsed.savedAtMs, game: { ...parsed.game, syncCount, syncElapsedMs } };
 }
 
-export function parseSaveDataV5(value: unknown): SaveData | null {
+export function parseSaveDataV5(value: unknown): SaveDataV5 | null {
   if (!isRecord(value) || value.schemaVersion !== 5 || !isRecord(value.game)
     || Object.keys(value.game).length !== 13) return null;
   const { previousRun, ...current } = value.game;
@@ -235,4 +237,13 @@ export function parseSaveDataV5(value: unknown): SaveData | null {
   }
   return { schemaVersion: 5, savedAtMs: parsed.savedAtMs,
     game: { ...parsed.game, previousRun: record?.game ?? null } };
+}
+
+export function parseSaveDataV6(value: unknown): SaveData | null {
+  if (!isRecord(value) || value.schemaVersion !== 6 || !isRecord(value.game) || Object.keys(value.game).length !== 15) return null;
+  const { town, previousTown, ...legacy } = value.game;
+  const parsed = parseSaveDataV5({ schemaVersion: 5, savedAtMs: value.savedAtMs, game: legacy });
+  const current = parseTown(town), previous = previousTown === null ? null : parseTown(previousTown);
+  if (!parsed || !current || (previousTown !== null && !previous) || (previous && !parsed.game.previousRun)) return null;
+  return { schemaVersion: 6, savedAtMs: parsed.savedAtMs, game: { ...parsed.game, town: current, previousTown: previous } };
 }

@@ -1,4 +1,5 @@
 import { FACILITIES } from "../data/facilities";
+import { createTown } from '../logic/town';
 import type {
   FacilityId,
   GameState,
@@ -14,6 +15,7 @@ function createInitialFacilityCounts(): Record<FacilityId, number> {
 export function createInitialGameState(): GameState {
   return {
     previousRun: null,
+    town: createTown(), previousTown: null,
     syncCount: 0,
     syncElapsedMs: 0,
     endingPhase: 'playing',

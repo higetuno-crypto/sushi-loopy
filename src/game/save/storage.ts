@@ -100,6 +100,9 @@ export function writeMainSave(
       let old: unknown;
       try { old = JSON.parse(existing); } catch { return { success: false, reason: 'protected-existing-save' }; }
       if (migrateSaveData(old) === null) return { success: false, reason: 'protected-existing-save' };
+      if ((old as { schemaVersion: number }).schemaVersion === 5 && window.localStorage.getItem('sushi-loopy.save.backup-v5') === null) {
+        window.localStorage.setItem('sushi-loopy.save.backup-v5', existing);
+      }
       if ((old as { schemaVersion: number }).schemaVersion === 4 && window.localStorage.getItem('sushi-loopy.save.backup-v4') === null) {
         window.localStorage.setItem('sushi-loopy.save.backup-v4', existing);
       }

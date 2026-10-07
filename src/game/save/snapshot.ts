@@ -1,4 +1,5 @@
 import type { GameState, RunState } from "../types";
+import { copyTown } from '../logic/town';
 import {
   CURRENT_SCHEMA_VERSION,
   type SaveData,
@@ -38,6 +39,7 @@ export function createSaveSnapshot(state: GameState): SaveSnapshot {
   return { schemaVersion: CURRENT_SCHEMA_VERSION, game: {
     ...createRunSnapshot(state),
     previousRun: state.previousRun ? createRunSnapshot(state.previousRun) : null,
+    town: copyTown(state.town), previousTown: state.previousTown ? copyTown(state.previousTown) : null,
   } };
 }
 

@@ -64,7 +64,7 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   assert.equal(click(store.getState()), 2);
   assert.equal(sps(store.getState()), 0);
   const saved = snapshot(store.getState());
-  assert.equal(saved.schemaVersion, 5);
+  assert.equal(saved.schemaVersion, 6);
   assert.equal('debugFastClick' in saved.game, false);
   assert.equal('setDebugFastClick' in saved.game, false);
   store.getState().setDebugFastClick(false);
@@ -126,7 +126,7 @@ test('achievement reconciliation is idempotent and only targeted dependencies ar
 test('v1 frozen parser and migration preserve 9 IDs, currency and time; grant owned facility achievements', () => {
   const old=oldSave({facilityCounts:{...initial().facilityCounts,craftsman:4,luna_sea:1}});
   const before=JSON.stringify(old); assert.ok(parseSaveDataV1(old)); const result=migrate(old);
-  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,5); assert.equal(result.savedAtMs,1000);
+  assert.equal(JSON.stringify(old),before); assert.equal(result.schemaVersion,6); assert.equal(result.savedAtMs,1000);
   assert.deepEqual(result.game.facilityCounts,old.game.facilityCounts); assert.equal(result.game.sushi,20); assert.equal(result.game.runPlayTimeMs,1200);
   assert.equal(result.game.totalClicks,0); assert.equal(result.game.totalSushiEarned,20);
   assert.deepEqual(result.game.unlockedAchievementIds,['first_craftsman','first_luna_sea']); assert.ok(validate(result));
@@ -144,7 +144,7 @@ test('unknown content IDs survive current save round trip and confer no bonus', 
   const result=migrate(currentSave()); assert.deepEqual(result.game,snapshot(store.getState()).game); assert.equal(calculateModifiers(result.game).production,1);
 });
 test('snapshot/hydration clone collections and exclude derived values/actions', () => {
-  const data=currentSave(); assert.equal(Object.keys(data.game).length,13); assert.equal(data.game.tapSushi,undefined);
+  const data=currentSave(); assert.equal(Object.keys(data.game).length,15); assert.equal(data.game.tapSushi,undefined);
   const state=hydrate(data); state.facilityCounts.craftsman=7; state.seenNewsIds.push('tea'); assert.equal(data.game.facilityCounts.craftsman,0); assert.deepEqual(data.game.seenNewsIds,[]);
 });
 test('Main Save/Load persists all current fields and backs up v1 once without mutation', () => {
@@ -158,7 +158,7 @@ test('corrupt/future Main Saves are not overwritten by automatic writes', () => 
   }
 });
 test('storage quota failures are reported', () => { storage.failWrites=true; assert.equal(save(store.getState()).success,false); });
-test('Save Code exports v5, imports all fields, keeps actions, and applies no offline gain', () => {
+test('Save Code exports v6, imports all fields, keeps actions, and applies no offline gain', () => {
   store.setState({sushi:55,totalClicks:100,totalSushiEarned:500,unlockedAchievementIds:['click_100'],purchasedUpgradeIds:['warm_hands'],seenNewsIds:['tea']});
   const expected=snapshot(store.getState()).game; const code=exportCode(); assert.ok(code.startsWith('SUSHILOOPY1:'));
   store.setState(initial()); assert.equal(importCode(code).ok,true); assert.deepEqual(snapshot(store.getState()).game,expected); assert.equal(typeof store.getState().tapSushi,'function');
@@ -239,7 +239,7 @@ function firstTwoSyncs() {
 }
 function reachCollapse() { firstTwoSyncs(); store.getState().addRunPlayTime(SYNC_SETTLE_MS); buySync(); }
 function legacyV3(phase='playing') {
-  const { previousRun:_previousRun, syncCount:_syncCount, syncElapsedMs:_syncElapsedMs, ...game } = initial();
+  const { town:_town, previousTown:_previousTown, previousRun:_previousRun, syncCount:_syncCount, syncElapsedMs:_syncElapsedMs, ...game } = initial();
   game.facilityCounts.global_freshness_sync=1;
   game.endingPhase=phase;
   game.collapseElapsedMs=phase==='cleared'?28000:phase==='collapse'?12000:0;
@@ -303,7 +303,7 @@ test('error and fracture end in one real manual sushi, without double finish or 
 test('old v2 and every v3 ending state migrate without replay, losing records or mutating source', () => {
   for(const phase of ['playing','collapse','cleared']){
     const old=legacyV3(phase), raw=JSON.stringify(old), result=migrate(old);
-    assert.equal(result.schemaVersion,5);assert.equal(result.game.endingPhase,phase==='cleared'?'playing':phase);
+    assert.equal(result.schemaVersion,6);assert.equal(result.game.endingPhase,phase==='cleared'?'playing':phase);
     if(phase==='cleared'){assert.equal(result.game.sushi,0);assert.equal(result.game.previousRun.totalClicks,old.game.totalClicks);}
     else {assert.equal(result.game.collapseElapsedMs,old.game.collapseElapsedMs);assert.equal(result.game.syncCount,phase==='playing'?0:1);}
     assert.equal(JSON.stringify(old),raw);assert.ok(validate(result));
@@ -393,7 +393,7 @@ test('record validation rejects recursion, unfinished or malformed records', () 
  const unfinished=legacyV3('playing').game;
  for(const previousRun of [undefined, {}, {...unfinished,syncCount:0,syncElapsedMs:0},
    {...legacyV3('cleared').game,syncCount:1,syncElapsedMs:0,previousRun:null}])
-  assert.equal(validate({schemaVersion:5,savedAtMs:1000,game:{...initial(),previousRun}}),null);
+  assert.equal(validate({schemaVersion:6,savedAtMs:1000,game:{...initial(),previousRun}}),null);
 });
 
 test('v4 completed save migrates once into a fresh shop with full previous record and backup', () => {

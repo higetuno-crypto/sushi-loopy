@@ -10,9 +10,13 @@ import { UPGRADE_BY_ID } from '../data/upgrades';
 import { meetsCondition } from '../logic/conditions';
 import { resolveAchievements } from '../logic/progression';
 import { createInitialGameState } from './initialState';
+import { copyTown, moveTownFacility, parseTown, type Town } from '../logic/town';
 import { selectSushiPerClick, selectTotalSushiPerSecond } from './selectors';
 
 type GameActions = {
+  configureTown: (patch: Partial<Pick<Town, 'name' | 'color' | 'truckColor' | 'weather' | 'bench'>>) => void;
+  moveFacility: (id: FacilityId, slot: number) => void;
+  serveGuest: (choice: number) => boolean;
   synchronize: () => void;
   finishFirstRun: () => void;
   debugFastClick: boolean;
@@ -34,6 +38,21 @@ const safeAdd = (a: number, b: number) => Math.min(a + b, Number.MAX_VALUE);
 export const useGameStore = create<GameStore>()((set) => ({
   ...createInitialGameState(),
   debugFastClick: false,
+  configureTown: patch => set(state => {
+    const town = parseTown({ ...state.town, ...patch });
+    return town && state.endingPhase === 'playing' ? { town } : state;
+  }),
+  moveFacility: (id, slot) => set(state => state.endingPhase === 'playing' ? { town: moveTownFacility(state.town, id, slot) } : state),
+  serveGuest: choice => {
+    let served = false;
+    set(state => {
+      if (state.endingPhase !== 'playing' || state.facilityCounts.conveyor_sushi < 1 || state.runPlayTimeMs < state.town.orderReadyAt || choice !== state.town.ordersServed % 3) return state;
+      served = true;
+      const gain = selectTotalSushiPerSecond(state) * 4;
+      return { sushi: safeAdd(state.sushi, gain), totalSushiEarned: safeAdd(state.totalSushiEarned, gain), town: { ...state.town, ordersServed: Math.min(state.town.ordersServed + 1, Number.MAX_SAFE_INTEGER), orderReadyAt: state.runPlayTimeMs + 60_000 } };
+    });
+    return served;
+  },
   synchronize: () => set(state => pendingSynchronization(state)
     ? { syncCount: state.syncCount + 1, syncElapsedMs: 0 } : state),
   finishFirstRun: () => set(state => {
@@ -43,7 +62,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       totalSushiEarned: safeAdd(state.totalSushiEarned, 1),
       totalClicks: Math.min(state.totalClicks + 1, Number.MAX_SAFE_INTEGER),
     });
-    return { ...createInitialGameState(), previousRun, debugFastClick: false };
+    return { ...createInitialGameState(), previousRun, town: { ...copyTown(state.town), orderReadyAt: 0 }, previousTown: copyTown(state.town), debugFastClick: false };
   }),
   setDebugFastClick: enabled => set({ debugFastClick: enabled }),
 

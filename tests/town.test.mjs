@@ -1,0 +1,60 @@
+import { after, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'vite';
+const vite = await createServer({ server: { middlewareMode: true, watch: null }, appType: 'custom', logLevel: 'silent' });
+after(() => vite.close());
+const load = path => vite.ssrLoadModule(`/src/game/${path}.ts`);
+const { useGameStore: store } = await load('state/store');
+const { createInitialGameState: initial } = await load('state/initialState');
+const { migrateSaveData: migrate } = await load('save/migrations');
+const { parseCurrentSaveData: validate } = await load('save/validation');
+const { createSaveSnapshot: snapshot, createHydratedGameState: hydrate } = await load('save/snapshot');
+const { createTown, moveTownFacility, parseTown } = await load('logic/town');
+
+test('v5 progress migrates to a valid town; customization roundtrips and survives the loop', () => {
+  const old = { ...initial(), sushi: 54321 };
+  delete old.town; delete old.previousTown;
+  const migrated = migrate({schemaVersion:5,savedAtMs:1000,game:old});
+  assert.equal(migrated.schemaVersion,6);
+  assert.equal(migrated.game.sushi,54321);
+  store.setState(hydrate(migrated));
+  store.getState().configureTown({name:'海辺のおすし',color:'indigo'});
+  store.getState().moveFacility('craftsman',3);
+  const saved = { ...snapshot(store.getState()), savedAtMs:2000 };
+  assert.ok(validate(saved));
+  const restored = hydrate(saved);
+  assert.equal(restored.town.name,'海辺のおすし');
+  assert.equal(restored.town.plots[0],3);
+  restored.town.plots[0]=7;
+  assert.equal(saved.game.town.plots[0],3);
+  store.setState({endingPhase:'collapse',collapseElapsedMs:28000,syncCount:3,facilityCounts:{...initial().facilityCounts,global_freshness_sync:3}});
+  store.getState().finishFirstRun();
+  assert.equal(store.getState().town.color,'indigo');
+  assert.equal(store.getState().town.name,'海辺のおすし');
+  assert.equal(store.getState().previousTown.plots[0],3);
+  assert.ok(validate({...snapshot(store.getState()),savedAtMs:3000}));
+});
+test('layout is a permutation and malformed imported town data is rejected', () => {
+  const town=createTown();
+  assert.deepEqual(moveTownFacility(town,'craftsman',3).plots,[3,1,2,0,4,5,6,7,8]);
+  for(const patch of [{name:'<script>'},{name:'x'.repeat(21)},{plots:[0,0,2,3,4,5,6,7,8]},{color:'blue'},{orderReadyAt:Infinity},{ordersServed:-1}]) assert.equal(parseTown({...town,...patch}),null);
+  assert.deepEqual(moveTownFacility(town,'craftsman',-1),town);
+});
+
+test('guest orders are optional, pay four production seconds, and cannot be farmed during cooldown', () => {
+  store.setState(initial());
+  assert.equal(store.getState().serveGuest(0),false);
+  store.setState({facilityCounts:{...initial().facilityCounts,conveyor_sushi:1}});
+  assert.equal(store.getState().serveGuest(2),false);
+  assert.equal(store.getState().sushi,0);
+  assert.equal(store.getState().serveGuest(0),true);
+  assert.equal(store.getState().sushi,32);
+  assert.equal(store.getState().totalSushiEarned,32);
+  assert.equal(store.getState().serveGuest(1),false);
+  store.setState(hydrate({...snapshot(store.getState()),savedAtMs:1000}));
+  assert.equal(store.getState().serveGuest(1),false);
+  store.getState().addRunPlayTime(60000);
+  assert.equal(store.getState().serveGuest(1),true);
+  store.setState({endingPhase:'collapse',runPlayTimeMs:120000});
+  assert.equal(store.getState().serveGuest(2),false);
+});

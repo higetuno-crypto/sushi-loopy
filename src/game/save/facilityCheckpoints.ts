@@ -405,8 +405,10 @@ restoreFacilityCheckpoint(
    * tapSushi / buyFacility 等の action は残る。
    */
   const hydrated = createHydratedGameState(saveData);
+  const current = useGameStore.getState();
   useGameStore.setState({ ...hydrated,
-    previousRun: useGameStore.getState().previousRun ?? hydrated.previousRun,
+    previousRun: current.previousRun ?? hydrated.previousRun,
+    previousTown: current.previousRun ? current.previousTown : hydrated.previousTown,
   });
 
   /**
