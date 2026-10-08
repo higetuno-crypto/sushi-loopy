@@ -9,7 +9,7 @@ const { createInitialGameState: initial } = await load('state/initialState');
 const { migrateSaveData: migrate } = await load('save/migrations');
 const { parseCurrentSaveData: validate } = await load('save/validation');
 const { createSaveSnapshot: snapshot, createHydratedGameState: hydrate } = await load('save/snapshot');
-const { createTown, moveTownFacility, parseTown } = await load('logic/town');
+const { createTown, moveTownFacility, parseTown, townTier } = await load('logic/town');
 
 test('v5 progress migrates to a valid town; customization roundtrips and survives the loop', () => {
   const old = { ...initial(), sushi: 54321 };
@@ -39,6 +39,7 @@ test('layout is a permutation and malformed imported town data is rejected', () 
   assert.deepEqual(moveTownFacility(town,'craftsman',3).plots,[3,1,2,0,4,5,6,7,8]);
   for(const patch of [{name:'<script>'},{name:'x'.repeat(21)},{plots:[0,0,2,3,4,5,6,7,8]},{color:'blue'},{orderReadyAt:Infinity},{ordersServed:-1}]) assert.equal(parseTown({...town,...patch}),null);
   assert.deepEqual(moveTownFacility(town,'craftsman',-1),town);
+  assert.deepEqual([0,1,4,5,9,10,24,25,1000].map(townTier),[0,1,1,2,2,3,3,4,4]);
 });
 
 test('guest orders are optional, pay four production seconds, and cannot be farmed during cooldown', () => {

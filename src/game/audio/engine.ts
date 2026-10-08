@@ -96,6 +96,14 @@ export function playPurchase() {
   [72, 76, 79, 84].forEach((note, index) => playNote({ note, duration: 0.24, gain: 0.2, wave: 'sine' }, context!.currentTime + index * 0.075));
 }
 
+let lastTownSound = 0;
+export function playTownSound(kind: 'truck' | 'cat' | 'chef' | 'bubble' | 'boat' | 'guest') {
+  if (!enabled || !context || context.state !== 'running' || context.currentTime-lastTownSound<0.5) return;
+  lastTownSound=context.currentTime;
+  const pitches=kind==='truck'||kind==='boat'?[62,66]:kind==='bubble'?[86,93]:[78,74];
+  pitches.forEach((note,i)=>playNote({note,duration:kind==='bubble'?.5:.15,gain:.14,wave:kind==='truck'?'triangle':'sine'},context!.currentTime+i*.12));
+}
+
 export function bindAudioVisibility(): () => void {
   const handler = () => {
     if (!context || !enabled) return;

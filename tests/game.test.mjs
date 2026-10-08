@@ -72,6 +72,27 @@ test('debug click override is exact, reversible and excluded from saves', () => 
   assert.equal(store.getState().sushi, 100_002);
 });
 
+test('v5 main save is backed up once and town customization survives Save Code and checkpoint rewind', () => {
+  const game={...initial(),sushi:500};delete game.town;delete game.previousTown;
+  const old=JSON.stringify({schemaVersion:5,savedAtMs:1000,game});
+  storage.setItem(MAIN_SAVE_KEY,old);
+  store.setState(hydrate(loadSave().save));
+  store.getState().configureTown({name:'港の店',truckColor:'leaf'});
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v5'),old);
+  assert.ok(save(store.getState()).success);
+  assert.equal(storage.getItem('sushi-loopy.save.backup-v5'),old);
+  const stop=track();store.getState().buyFacility('craftsman');stop();
+  const code=exportCode(store.getState());
+  store.getState().configureTown({name:'別の店'});
+  assert.ok(importCode(code).ok);assert.equal(store.getState().town.name,'港の店');
+  store.setState({endingPhase:'collapse',collapseElapsedMs:28000,syncCount:3,facilityCounts:{...store.getState().facilityCounts,global_freshness_sync:3}});
+  store.getState().finishFirstRun();const previousTown=store.getState().previousTown;
+  assert.ok(restore('craftsman').success);assert.equal(store.getState().previousTown,previousTown);
+  assert.equal(store.getState().previousTown.truckColor,'leaf');
+  assert.ok(validate(currentSave()));
+});
+
 test('registries: unique stable IDs, 9 facility achievements + 100 clicks, valid rewards and references', () => {
   assert.equal(ACHIEVEMENTS.length, 10);
   for (const items of [ACHIEVEMENTS, UPGRADES, NEWS]) assert.equal(new Set(items.map(x => x.id)).size, items.length);

@@ -6,6 +6,7 @@ import { startAutoSave } from "./game/runtime/autoSave";
 import { bootstrapGame } from "./game/runtime/bootstrap";
 import { startFacilityCheckpointTracking } from "./game/runtime/facilityCheckpointTracking";
 import "./styles/global.css";
+import "./styles/town.css";
 
 const stopGameScheduler = bootstrapGame();
 
