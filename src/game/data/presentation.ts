@@ -17,3 +17,8 @@ export const ASSETS = {
   sushi: `${import.meta.env.BASE_URL}assets/salmon-hero-v1.webp`,
   sushiSmall: `${import.meta.env.BASE_URL}assets/salmon-hero-v1-small.webp`,
 };
+export const TOWN_STORIES = [
+  '職人が店にやってきます', 'レーンと、お客さんのいる店に', 'アームが動き、握りたてが店へ',
+  '港から寿司屋へ、トラックの初便', '沖合で採掘。船が食材を運びます', '寿司のエネルギーで街に灯りを',
+  '月への定期便が飛び立ちます', '冷たい泡の、小さな氷の庭に', '街のすべてを、ひとつの鮮度に',
+];
