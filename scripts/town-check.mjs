@@ -18,7 +18,7 @@ const fresh=async(width=390,height=844,seed=null)=>{
   return {page,context};
 };
 try{
-  for(const [width,height] of [[320,568],[375,568],[390,844],[430,932],[1440,960]]){
+  for(const [width,height] of [[320,568],[375,568],[390,844],[430,932],[1280,720],[1440,960]]){
     const {page,context}=await fresh(width,height);
     const dimensions=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,dock:document.querySelector('.town-dock').getBoundingClientRect().toJSON()}));
     assert.ok(dimensions.scrollWidth<=width,`horizontal overflow ${width}`);

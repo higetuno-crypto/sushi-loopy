@@ -1,0 +1,140 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "height": 568,
+      "dimensions": {
+        "width": 320,
+        "height": 568,
+        "scrollWidth": 320,
+        "scrollHeight": 568,
+        "dock": {
+          "x": 0,
+          "y": 497,
+          "width": 320,
+          "height": 71,
+          "top": 497,
+          "right": 320,
+          "bottom": 568,
+          "left": 0
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "width": 375,
+      "height": 568,
+      "dimensions": {
+        "width": 375,
+        "height": 568,
+        "scrollWidth": 375,
+        "scrollHeight": 568,
+        "dock": {
+          "x": 0,
+          "y": 483,
+          "width": 375,
+          "height": 85,
+          "top": 483,
+          "right": 375,
+          "bottom": 568,
+          "left": 0
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "dimensions": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 844,
+        "dock": {
+          "x": 0,
+          "y": 752,
+          "width": 390,
+          "height": 92,
+          "top": 752,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "dimensions": {
+        "width": 430,
+        "height": 932,
+        "scrollWidth": 430,
+        "scrollHeight": 932,
+        "dock": {
+          "x": 0,
+          "y": 840,
+          "width": 430,
+          "height": 92,
+          "top": 840,
+          "right": 430,
+          "bottom": 932,
+          "left": 0
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "dimensions": {
+        "width": 1280,
+        "height": 720,
+        "scrollWidth": 1280,
+        "scrollHeight": 722,
+        "dock": {
+          "x": 341,
+          "y": 609,
+          "width": 598,
+          "height": 92,
+          "top": 609,
+          "right": 939,
+          "bottom": 701,
+          "left": 341
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "width": 1440,
+      "height": 960,
+      "dimensions": {
+        "width": 1440,
+        "height": 960,
+        "scrollWidth": 1440,
+        "scrollHeight": 962,
+        "dock": {
+          "x": 421,
+          "y": 849,
+          "width": 598,
+          "height": 92,
+          "top": 849,
+          "right": 1019,
+          "bottom": 941,
+          "left": 421
+        }
+      },
+      "firstPurchase": true
+    },
+    {
+      "migration": true,
+      "customization": true,
+      "layoutSwapUndo": true,
+      "animationPause": true,
+      "guestCooldown": true,
+      "photoDownload": true,
+      "reload": true
+    }
+  ],
+  "errors": []
+}

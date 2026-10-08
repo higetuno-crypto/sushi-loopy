@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "holdCancel": true,
+      "drag": true,
+      "pinch": true
+    },
+    {
+      "saveCodeV5": true,
+      "firstDelivery": true,
+      "synchronizationThreeStages": true,
+      "silentLoop": true,
+      "previousTown": true
+    }
+  ],
+  "errors": []
+}

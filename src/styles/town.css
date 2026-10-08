@@ -204,7 +204,7 @@
 .town-paused *,html[data-motion="off"] .town-game * { animation-play-state:paused!important; }
 .town-paused button { cursor:default; }
 @media (prefers-reduced-motion:reduce) { html:not([data-motion="on"]) .town-game * { animation-play-state:paused!important; } }
-@media (min-width:700px) { body:has(.town-game) { background:radial-gradient(ellipse at 25% 15%,#cfdfce,transparent 60%),#e4e6d8; }.town-game { margin:20px auto; border:1px solid #d0d2ba; border-radius:24px; overflow:hidden; }.town-shell { height:calc(100svh - 40px); min-height:760px; }.town-sheet { border-bottom:1px solid #d7cfb9; border-radius:24px; margin:auto; max-height:85svh; }.town-header { padding-inline:24px; }.town-balance .resource-value { font-size:40px; } }
+@media (min-width:700px) { body:has(.town-game) { background:radial-gradient(ellipse at 25% 15%,#cfdfce,transparent 60%),#e4e6d8; }.town-game { margin:20px auto; border:1px solid #d0d2ba; border-radius:24px; overflow:hidden; }.town-shell { height:calc(100svh - 40px); min-height:0; }.town-sheet { border-bottom:1px solid #d7cfb9; border-radius:24px; margin:auto; max-height:85svh; }.town-header { padding-inline:24px; }.town-balance .resource-value { font-size:40px; } }
 @media (max-width:370px) { .town-header { padding:10px 14px 9px; }.town-brand > div > span { font-size:17px; }.town-balance .resource-value { font-size:29px; }.town-bottom { padding-inline:9px; }.town-game .facility-item { grid-template-columns:44px minmax(0,1fr) 67px; gap:6px; padding-inline:7px; }.town-game .facility-icon { width:44px; height:44px; }.town-game .facility-buy-button { width:67px; }.town-game .facility-title-row h3 { font-size:11px; }.town-game .facility-info p { font-size:9px; }.town-game .facility-details { font-size:8px; }.town-dock { gap:7px; padding-inline:10px; }.town-tap > .town-sprite { width:44px; }.town-tap > span:nth-child(2) { font-size:17px; }.sheet-surface { padding-inline:14px; }.town-first-hint { font-size:18px; } }
 /* Keep secondary toys tappable even on the compact portrait layout. */
 .town-cat,.town-guest,.town-bubble { min-width:130px; min-height:130px; }
@@ -219,3 +219,6 @@
 .town-photo-sign { top:auto; bottom:55px; }
 .is-photographing .town-view { background:#173e43; }
 @media (max-height:700px) { .town-first-hint { display:none; } }
+
+.town-first-hint { top:78px; bottom:auto; }
+.town-sr-value { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
