@@ -177,6 +177,7 @@
 .guest-answer { min-height:30px; text-align:center; font-size:13px; color:#52714d; }
 .town-photo-controls { position:fixed; z-index:500; bottom:max(20px,env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:flex; flex-wrap:wrap; justify-content:center; gap:9px; width:min(550px,95vw); }
 .town-photo-controls button,.town-photo-controls a { background:#fff9eaf5; color:#466444; border:1px solid #b2bc96; padding:13px 16px; border-radius:25px; min-height:48px; font-size:12px; text-decoration:none; box-shadow:0 4px 12px #133d4033; }
+.town-photo-controls > small { width:100%; padding:10px; border-radius:8px; background:#fff9eaf5; color:#923a30; text-align:center; font-size:12px; }
 .is-photographing .town-header,.is-photographing .town-bottom,.is-photographing .town-dock,.is-photographing .town-stage-heading,.is-photographing .town-message,.is-photographing .town-undo { display:none; }
 .is-photographing .town-shell { display:block; }.is-photographing .town-stage { height:100%; }.is-photographing .town-building-label { display:none; }
 .town-game .toast-region { bottom:105px; max-width:calc(100vw - 30px); }.town-game .achievement-toast { padding:10px 15px; border-radius:12px; }.town-game .achievement-toast strong { font-size:11px; }

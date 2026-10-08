@@ -137,7 +137,7 @@ export function GameScreen() {
     if(!reduced)photoRoot.current?.querySelector(`.town-${kind}`)?.animate([{transform:'translateY(0) rotate(0)'},{transform:'translateY(-9px) rotate(-8deg)'},{transform:'translateY(0) rotate(0)'}],{duration:500});
     notify({truck:'ぷっぷー！ 運転手が手を振ってくれた。',cat:town.bench?'のびー。今日も、お気に入りのベンチで。':'にゃ。店先の見回りは、まかせて。',chef:'へい、おまち！',bubble:'ぽん、きん。ひんやり澄んだ氷の音。',boat:'大漁！ サーモンの地層を、ひと箱。'}[kind]);
   };
-  const openPhoto=()=>{setSheet(null);setMoving(null);setPhoto(true);setPhotoUrl('');};
+  const openPhoto=()=>{setSheet(null);setMoving(null);setMessage('');setPhoto(true);setPhotoUrl('');};
   return <main className={`game-screen town-game phase-${phase} ${photo?'is-photographing':''}`} data-anomaly={level}>
     <div className="town-shell world-surface" inert={!playing}>
       <TownCounter openSettings={()=>setSheet('settings')}/>
@@ -151,7 +151,7 @@ export function GameScreen() {
       <div className="town-bottom"><div className="town-next"><div className="town-next-caption"><span>{selected?'この施設を育てる':'つぎの景色'}</span>{selected && <button aria-label="施設の選択を解除" onClick={()=>setSelected(null)}>×</button>}</div><FacilityItem key={target.id} facility={target}/></div><NewsTicker/></div>
       <TownDock open={setSheet} active={playing && !sheet} photo={photo}/>
     </div>
-    {photo && <div className="town-photo-controls" data-preserve-ui><button onClick={()=>{setPhoto(false);setPhotoUrl('');}}>街に戻る</button><button onClick={takePhoto} disabled={photoBusy}>{photoBusy?'写真を現像中…':'この景色を撮る'}</button>{photoUrl && <a href={photoUrl} download="sushi-loopy-town.png">写真を保存 ↓</a>}</div>}
+    {photo && <div className="town-photo-controls" data-preserve-ui><button onClick={()=>{setPhoto(false);setPhotoUrl('');}}>街に戻る</button><button onClick={takePhoto} disabled={photoBusy}>{photoBusy?'写真を現像中…':'この景色を撮る'}</button>{photoUrl && <a href={photoUrl} download="sushi-loopy-town.png">写真を保存 ↓</a>}{message && <small role="status">{message}</small>}</div>}
     <Sheet open={sheet==='facilities'} name="facilities" title="お店を育てる" close={()=>setSheet(null)}><FacilityList/><ContentPanel/></Sheet>
     <Sheet open={sheet==='customize'} name="customize" title="わたしの街にする" close={()=>setSheet(null)}>{sheet==='customize' && <Customization move={id=>{setMoving(id);setSheet(null);}} photo={openPhoto}/>}</Sheet>
     <Sheet open={sheet==='guest'} name="guest" title="今日のひと皿" close={()=>setSheet(null)}><GuestOrder notify={notify}/><p className="guest-answer" role="status">{sheet==='guest'?message:''}</p></Sheet>
