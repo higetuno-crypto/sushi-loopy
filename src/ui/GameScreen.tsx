@@ -43,7 +43,7 @@ function TownCounter({openSettings}:{openSettings:()=>void}) {
   return <header className="town-header">
     <div className="town-brand"><span className="town-seal">すし</span><div><span>Sushi <em>Loopy</em></span><h1>{name}</h1></div></div>
     <button className={`town-menu ${warning?'save-attention':''}`} onClick={openSettings} aria-label={warning?'保存に問題があります。設定を開く':'記録と設定を開く'}>{warning?'保存に注意':'•••'}</button>
-    <div className="town-balance" aria-label="生産状況"><strong className="resource-value">{formatNumber(sushi)}</strong><span>SUSHI</span><small><i/> +{formatNumber(sps)} / 秒</small></div>
+    <div className="town-balance" aria-label="生産状況"><strong className="resource-value" data-echo={formatNumber(sushi)}>{formatNumber(sushi)}</strong><span>SUSHI</span><small><i/> +{formatNumber(sps)} / 秒</small></div>
   </header>;
 }
 
