@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "height": 568,
+      "firstPurchase": true,
+      "drawCalls": "74"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "firstPurchase": true,
+      "drawCalls": "74"
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "firstPurchase": true,
+      "drawCalls": "86"
+    },
+    {
+      "legacyMigration": true,
+      "motionStop": true,
+      "photo": true,
+      "customization": true,
+      "layoutUndo": true,
+      "reload": true,
+      "cameraEscapePrevented": true
+    },
+    {
+      "webglSceneInFracture": true,
+      "collapsePausesTown": true
+    }
+  ],
+  "errors": []
+}

@@ -1,122 +1,71 @@
-import { memo, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { FACILITIES } from '../game/data/facilities';
-import { townTier, type Town } from '../game/logic/town';
+import type { Town } from '../game/logic/town';
 import type { FacilityId, GameState } from '../game/types';
+import type { createTownRenderer, TownView } from '../game/rendering/townRenderer';
+import { useGameStore } from '../game/state/store';
 
-const base = `${import.meta.env.BASE_URL}assets/town/`;
-// Fixed landing pads keep paths readable and placement forgiving on a phone.
-const TOWN_PLOTS = [
-  [470,650], [705,560], [270,525], [245,260], [120,370], [790,250], [560,235], [750,820], [330,810],
-] as const;
-
-export function TownSprite({ index, actors = false, className = '', style }: { index: number; actors?: boolean; className?: string; style?: CSSProperties }) {
-  return <span aria-hidden="true" className={`town-sprite ${className}`} style={{ backgroundImage: `url(${base}${actors ? 'actors' : 'facilities'}.webp)`, backgroundPosition: `${index % 3 * 50}% ${Math.floor(index / 3) * 50}%`, ...style }} />;
+export function TownSprite({index,actors=false,className='',style}:{index:number;actors?:boolean;className?:string;style?:CSSProperties}) {
+  return <span aria-hidden="true" className={`town-sprite ${className}`} style={{backgroundImage:`url(${import.meta.env.BASE_URL}assets/town/${actors?'actors':'facilities'}.webp)`,backgroundPosition:`${index%3*50}% ${Math.floor(index/3)*50}%`,...style}}/>;
 }
-
-type Props = {
-  counts: GameState['facilityCounts']; town: Town; selected?: FacilityId | null;
-  receipt?: { id: FacilityId; serial: number; first: boolean } | null;
-  moving?: FacilityId | null; frozen?: boolean;
-  onSelect?: (id: FacilityId) => void; onMove?: (slot: number) => void;
-  onPlay?: (kind: 'truck' | 'cat' | 'chef' | 'bubble' | 'boat' | 'guest') => void;
+type Props={
+  counts:GameState['facilityCounts'];town:Town;
+  moving?:FacilityId|null;frozen?:boolean;paused?:boolean;
+  onMove?:(slot:number)=>void;
+  onPlay?:(kind:'truck'|'cat'|'chef'|'bubble'|'boat'|'guest')=>void;
 };
-
-export const TownScene = memo(function TownScene({ counts, town, selected, receipt, moving, frozen, onSelect, onMove, onPlay }: Props) {
-  const host = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 390, height: 540 });
-  const [camera, setCamera] = useState({ zoom: 1.15, x: 0, y: 0 });
-  const [hidden, setHidden] = useState(document.hidden);
-  const pointers = useRef(new Map<number, {x:number;y:number}>());
-  const gesture = useRef({ x: 0, y: 0, panX: 0, panY: 0, distance: 0, zoom: 1.15, moved: false });
-  const suppressClick = useRef(0);
-  useEffect(() => {
-    const node = host.current!;
-    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
-    observer.observe(node);
-    const visibility = () => setHidden(document.hidden);
-    document.addEventListener('visibilitychange', visibility);
-    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', visibility); };
-  }, []);
-  const scale = Math.min(size.width / 900, size.height / (frozen ? 1200 : 900)) * (frozen ? 1 : camera.zoom);
-  const position = (index: number) => TOWN_PLOTS[town.plots[index]];
-  const [shopX, shopY] = position(0);
-  const route = (index: number) => { const [x,y] = position(index); return `M ${x} ${y} Q ${x + 70} ${y + 55} 520 445 Q 520 560 ${shopX} ${shopY + 25}`; };
-  const plantRoute = route(3);
-  const pointStyle = (x: number, y: number): CSSProperties => ({ left:x, top:y });
-  const down = (event: PointerEvent<HTMLDivElement>) => {
-    if (frozen || event.button !== 0) return;
-    pointers.current.set(event.pointerId, {x:event.clientX,y:event.clientY});
-    const list = [...pointers.current.values()];
-    gesture.current = { x:event.clientX, y:event.clientY, panX:camera.x, panY:camera.y, zoom:camera.zoom, distance:list.length === 2 ? Math.hypot(list[1].x-list[0].x,list[1].y-list[0].y) : 0, moved:false };
-  };
-  const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (!pointers.current.has(event.pointerId)) return;
-    pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
-    const g=gesture.current, list=[...pointers.current.values()];
-    if (list.length === 2 && g.distance > 0) {
-      g.moved=true;
-      setCamera(c=>({...c, zoom:Math.max(1,Math.min(2.3,g.zoom*Math.hypot(list[1].x-list[0].x,list[1].y-list[0].y)/g.distance))}));
-    } else if (Math.hypot(event.clientX-g.x,event.clientY-g.y)>8 || g.moved) {
-      g.moved=true;
-      setCamera(c=>({...c,x:Math.max(-size.width,Math.min(size.width,g.panX+event.clientX-g.x)),y:Math.max(-size.height*.7,Math.min(size.height*.7,g.panY+event.clientY-g.y))}));
-    }
-    if (g.moved) event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const up = (event: PointerEvent<HTMLDivElement>) => {
-    if (gesture.current.moved) suppressClick.current=performance.now()+200;
-    pointers.current.delete(event.pointerId);
-    const remaining=[...pointers.current.values()][0];
-    if (remaining) gesture.current={x:remaining.x,y:remaining.y,panX:camera.x,panY:camera.y,distance:0,zoom:camera.zoom,moved:true};
-  };
-  return <div className={`town-view ${frozen || hidden ? 'town-paused' : ''} weather-${town.weather}`}>
-    <div ref={host} className="town-viewport" inert={frozen} aria-label="わたしの寿司の街。ドラッグで移動、二本指で拡大" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClickCapture={e=>{if(performance.now()<suppressClick.current){e.preventDefault();e.stopPropagation();}}}>
-      <div className="town-world" data-town-photo style={{ width:900,height:1200,transform:`translate(${size.width/2-450*scale+(frozen?0:camera.x)}px, ${size.height/2-(frozen?600:545)*scale+(frozen?0:camera.y)}px) scale(${scale})` }}>
-        <img className="town-terrain" src={`${base}island.webp`} width="900" height="1200" alt="海に囲まれた、石段と桟橋の小さな島" draggable="false" />
-        <svg className="town-roads" viewBox="0 0 900 1200" aria-hidden="true">
-          {[2,3,5,7].filter(i=>counts[FACILITIES[i].id]>0).map(i=><g key={`${i}:${town.plots.join()}`}><path d={route(i)} stroke="#f9e5ba" strokeWidth="32"/><path d={route(i)} stroke="#bda97e" strokeWidth="24"/><path d={route(i)} stroke="#f5e5bc" strokeWidth="3" strokeDasharray="9 12"/></g>)}
-        </svg>
-        {counts.fusion_sushi_converter>0 && <div className="town-lamps" aria-hidden="true">{[[365,610],[575,380],[675,760],[300,250]].map(([x,y],i)=><TownSprite key={i} actors index={8} className="town-lamp" style={pointStyle(x,y)}/>)}</div>}
-        {FACILITIES.map((facility,index)=>{
-          const count=counts[facility.id], [x,y]=position(index), tier=townTier(count), visible=count>0 || index===0;
-          if(!visible && !moving) return null;
-          return <button key={facility.id} type="button" className={`town-building building-${facility.id} tier-${tier} ${selected===facility.id?'is-selected':''} ${receipt?.id===facility.id?'is-new':''} ${!visible?'is-plot':''}`} style={{left:x,top:y,zIndex:Math.floor(y), '--tier':tier} as CSSProperties} aria-label={`${facility.displayName} ${count}個${moving?'。この場所へ移動':''}`} aria-pressed={selected===facility.id} onClick={()=>moving?onMove?.(town.plots[index]):onSelect?.(facility.id)}>
-            {visible ? <>
-              <TownSprite index={index} className={`town-building-art ${index<2?`cloth-${town.color}`:''}`} />
-              {count>0 && <span className="town-work" aria-hidden="true">
-                {index===0 && <TownSprite actors index={3} className="town-chef"/>}
-                {index===1 && <><i className="town-plate plate-one">●</i><i className="town-plate plate-two">●</i><TownSprite actors index={4} className="town-customer"/></>}
-                {index===2 && <TownSprite index={2} className="town-mechanism"/>}
-                {index===3 && <><i className="town-water water-one"/><i className="town-water water-two"/><span className="town-crate">▦</span></>}
-                {index===4 && <TownSprite actors index={6} className="town-drill"/>}
-                {index===5 && <i className="town-power"/>}
-                {index===6 && <TownSprite index={6} className="town-rocket"/>}
-                {index===7 && <><i className="town-ice ice-one">◌</i><i className="town-ice ice-two">◌</i></>}
-                {index===8 && <i className="town-signal"/>}
-              </span>}
-              {tier>1 && <span className="town-expansion" aria-hidden="true">{Array.from({length:tier-1},(_,i)=><TownSprite actors index={index<2?4:8} key={i}/>)}</span>}
-              <span className="town-building-label">{index===0?town.name:facility.displayName}<small>{count>0?`Lv.${tier} · ×${count}`:'開店準備'}</small></span>
-              {receipt?.id===facility.id && <span key={receipt.serial} className="town-build-ring" aria-hidden="true"/>}
-            </> : <span className="town-empty-plot">ここへ</span>}
-          </button>;
-        })}
-        {counts.marine_food_plant>0 && <>
-          <button type="button" aria-label="配達トラックに合図する" className={`town-truck truck-${town.truckColor} ${receipt?.id==='marine_food_plant'&&receipt.first?'first-delivery':''}`} key={`truck:${town.plots.join()}:${receipt?.id==='marine_food_plant'?receipt.serial:'steady'}`} style={{offsetPath:`path('${plantRoute}')`}} onClick={()=>onPlay?.('truck')}><TownSprite actors index={0}/><span className="truck-cargo">▦</span></button>
-          {townTier(counts.marine_food_plant)>1 && <button type="button" aria-label="二台目のトラックに合図する" className={`town-truck truck-${town.truckColor} second-truck`} style={{offsetPath:`path('${plantRoute}')`}} onClick={()=>onPlay?.('truck')}><TownSprite actors index={1}/></button>}
-        </>}
-        {counts.auto_sushi_machine>0 && <TownSprite actors index={6} className="town-sushi-delivery" style={{offsetPath:`path('${route(2)}')`}}/>}
-        {counts.sushi_ocean_mining>0 && <button aria-label="漁船に合図する" className="town-boat" onClick={()=>onPlay?.('boat')}><TownSprite actors index={2}/></button>}
-        {town.bench && <TownSprite actors index={7} className="town-bench" style={pointStyle(shopX-140,shopY+78)}/>}
-        <button className={`town-cat ${town.bench?'cat-at-bench':''}`} style={pointStyle(shopX-(town.bench?140:50),shopY+(town.bench?52:70))} aria-label="猫をなでる" onClick={()=>onPlay?.('cat')}><TownSprite actors index={5}/></button>
-        {counts.conveyor_sushi>0 && <button className="town-guest" style={pointStyle(shopX+115,shopY+55)} aria-label="常連さんの注文を見る" onClick={()=>onPlay?.('guest')}><TownSprite actors index={4}/><span>ひと皿、いい？</span></button>}
-        {counts.freshness_freezer>0 && <button className="town-bubble" style={pointStyle(position(7)[0]+70,position(7)[1]-160)} aria-label="氷の泡を鳴らす" onClick={()=>onPlay?.('bubble')}>◌</button>}
-        <div className="town-atmosphere" aria-hidden="true"/>
-        <span className="town-photo-sign">{town.name}<small>SUSHI LOOPY</small></span>
-      </div>
-    </div>
-    {!frozen && <div className="town-camera" data-html2canvas-ignore>
-      <button aria-label="街を縮小" disabled={camera.zoom<=1} onClick={()=>setCamera(c=>({...c,zoom:Math.max(1,c.zoom-.25)}))}>−</button>
-      <button aria-label="街を拡大" disabled={camera.zoom>=2.3} onClick={()=>setCamera(c=>({...c,zoom:Math.min(2.3,c.zoom+.25)}))}>＋</button>
-      <button onClick={()=>setCamera({zoom:1.15,x:0,y:0})}>お店へ</button>
-    </div>}
+export const TownScene=memo(function TownScene(props:Props) {
+  const {counts,town,moving,frozen,paused}=props;
+  const host=useRef<HTMLDivElement>(null),renderer=useRef<ReturnType<typeof createTownRenderer>|null>(null),latest=useRef(props);
+  const [view,setView]=useState<TownView>('craftsman'),[failed,setFailed]=useState(false),[retry,setRetry]=useState(0);
+  const currentView=useRef<TownView>('craftsman');
+  useEffect(()=>{latest.current=props;});
+  useEffect(()=>{
+    let cancelled=false;
+    const node=host.current!;
+    void import('../game/rendering/townRenderer').then(({createTownRenderer})=>{
+      if(cancelled)return;
+      renderer.current=createTownRenderer(node,key=>{
+        if(['cat','truck','chef','boat'].includes(key)) {
+          renderer.current?.react(key);latest.current.onPlay?.(key as 'cat'|'truck'|'chef'|'boat');
+        }else {currentView.current=key as FacilityId;setView(key as FacilityId);renderer.current?.focus(key as FacilityId);}
+      },()=>setFailed(true));
+      renderer.current.update(latest.current.counts,latest.current.town);
+      renderer.current.pause(!!(latest.current.frozen||latest.current.paused));
+      renderer.current.focus(latest.current.frozen?'all':currentView.current,true);
+    }).catch(()=>{if(!cancelled)setFailed(true);});
+    const capture=async(event:Event)=>{
+      const request=event as CustomEvent<{resolve:(blob:Blob)=>void;reject:(error:unknown)=>void}>;
+      try {if(!renderer.current)throw new Error('Town renderer unavailable');request.detail.resolve(await renderer.current.photo());}
+      catch(error){request.detail.reject(error);}
+    };
+    node.addEventListener('town-photo',capture);
+    return()=>{cancelled=true;node.removeEventListener('town-photo',capture);renderer.current?.dispose();renderer.current=null;};
+  },[retry]);
+  useEffect(()=>{renderer.current?.update(counts,town);},[counts,town]);
+  useEffect(()=>{renderer.current?.pause(!!(frozen||paused));},[frozen,paused]);
+  useEffect(()=>{renderer.current?.focus(moving||frozen?'all':view);},[view,moving,frozen]);
+  useEffect(()=>{
+    const purchased=(event:Event)=>{
+      if(latest.current.frozen)return;
+      const {id}=(event as CustomEvent<{id:FacilityId}>).detail;
+      currentView.current=id;setView(id);renderer.current?.focus(id);
+    };
+    window.addEventListener('sushi-loopy:town-purchase',purchased);
+    return()=>window.removeEventListener('sushi-loopy:town-purchase',purchased);
+  },[]);
+  useEffect(()=>useGameStore.subscribe((state,old)=>{if(!latest.current.frozen&&state.totalClicks!==old.totalClicks)renderer.current?.react('chef');}),[]);
+  const focus=(next:TownView)=>{currentView.current=next;setView(next);renderer.current?.focus(next);};
+  const play=(kind:'cat'|'truck'|'chef'|'boat')=>{renderer.current?.react(kind);props.onPlay?.(kind);};
+  return <div className={`town-view weather-${town.weather}`}>
+    <div ref={host} className="town-viewport town-world" role="img" aria-label="海辺の寿司屋。職人、レーン、配達トラックが動く立体の街"/>
+    {failed && <div className="town-render-fallback"><p>街の表示を再開できませんでした。</p><button onClick={()=>{setFailed(false);setRetry(n=>n+1);}}>街を再表示</button></div>}
+    {!frozen && <nav className="town-views" aria-label="街の眺め">
+      <button aria-pressed={view==='craftsman'&&!moving} onClick={()=>focus('craftsman')}>お店</button>
+      {counts.marine_food_plant>0 && <button aria-pressed={view==='marine_food_plant'&&!moving} onClick={()=>focus('marine_food_plant')}>港</button>}
+      <button aria-pressed={view==='all'||!!moving} onClick={()=>focus('all')}>全景</button>
+    </nav>}
+    {moving && <div className="town-plot-picker" aria-label="移動先の区画">{town.plots.map((slot,index)=><button key={slot} onClick={()=>props.onMove?.(slot)}>{FACILITIES[index].displayName}</button>)}</div>}
+    {!frozen && <details className="town-interactions"><summary>街のものに触れる</summary><div><button onClick={()=>play('cat')}>猫をなでる</button>{counts.craftsman>0&&<button onClick={()=>play('chef')}>職人の手元を見る</button>}{counts.marine_food_plant>0&&<button onClick={()=>play('truck')}>配達トラックに合図する</button>}{counts.sushi_ocean_mining>0&&<button onClick={()=>play('boat')}>漁船に合図する</button>}</div></details>}
   </div>;
 });
