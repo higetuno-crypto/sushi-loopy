@@ -13,6 +13,7 @@ async function fresh(width,height,save){
   const context=await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:width<700,reducedMotion:'no-preference'});
   if(save)await context.addInitScript(data=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(data));sessionStorage.setItem('seeded','yes');}},save);
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
   await page.goto(base);await page.locator('.town-viewport[data-ready="true"]').first().waitFor({timeout:20000});
   return {page,context};
 }
@@ -83,6 +84,25 @@ try {
   }
   results.push({legacyMigration:true,motionStop:true,photo:true,customization:true,layoutUndo:true,reload:true,cameraEscapePrevented:true});
   await context.close();
+  // All nine models catch mixed indexed/non-indexed geometry dropping a material bucket.
+  const full=seed();full.game.facilityCounts.global_freshness_sync=1;full.game.syncCount=1;
+  const islandCase=await fresh(390,844,full);
+  await islandCase.page.getByRole('button',{name:'全景',exact:true}).click();
+  await islandCase.page.waitForTimeout(1200);
+  await islandCase.page.screenshot({path:`${output}/all-nine.png`});
+  await islandCase.page.getByRole('button',{name:'模様替え',exact:true}).click();
+  await islandCase.page.locator('.town-move-list').getByRole('button',{name:'職人さん',exact:false}).click();
+  await islandCase.page.locator('.town-plot-picker').getByRole('button',{name:'回転寿司オープン',exact:true}).click();
+  await islandCase.page.getByRole('button',{name:'全景',exact:true}).click();
+  await islandCase.page.waitForFunction(()=>{
+    const [x,,z]=(document.querySelector('.town-viewport')?.dataset.truckPosition??'').split(',').map(Number);
+    return x>4.5&&x<6.3&&z>11.2&&z<12.3;
+  },{},{timeout:35000});
+  await islandCase.page.screenshot({path:`${output}/bridge-delivery.png`});
+  const bridgePosition=await islandCase.page.locator('.town-viewport').getAttribute('data-truck-position');
+  await islandCase.page.getByRole('button',{name:'配置を元に戻す ↶',exact:true}).click();
+  results.push({allNineModels:true,islandRelocation:true,truckCrossesBridge:true,bridgePosition});
+  await islandCase.context.close();
   const ending=seed();Object.assign(ending.game,{endingPhase:'collapse',collapseElapsedMs:0,syncCount:2,syncElapsedMs:18000});ending.game.facilityCounts.global_freshness_sync=3;
   const endingCase=await fresh(390,844,ending);
   const endingTime=await endingCase.page.locator('.town-viewport').getAttribute('data-time');

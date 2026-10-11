@@ -3,23 +3,10 @@ import { buildTown } from './townModels';
 import type { Town } from '../logic/town';
 import type { FacilityId, GameState } from '../types';
 import { FACILITIES } from '../data/facilities';
+import { deliveryRoute } from './townField';
 
 export type TownView = FacilityId | 'all';
 const smooth=(n:number)=>n*n*(3-2*n);
-
-// The truck stays on the road network even after a saved layout is rearranged.
-function deliveryRoute(source:readonly number[],destination:readonly number[]) {
-  const points=[new T.Vector3(source[0],0,source[1]+3.5)];
-  if(source[1]!==destination[1])points.push(new T.Vector3(3,0,source[1]+3.5),new T.Vector3(3,0,destination[1]+3.5));
-  points.push(new T.Vector3(destination[0],0,destination[1]+3.5));
-  const curve=new T.CurvePath<T.Vector3>();
-  let last=points[0];
-  for(let i=1;i<points.length-1;i++) {
-    const corner=points[i], before=corner.clone().lerp(points[i-1],.18),after=corner.clone().lerp(points[i+1],.18);
-    curve.add(new T.LineCurve3(last,before));curve.add(new T.QuadraticBezierCurve3(before,corner,after));last=after;
-  }
-  curve.add(new T.LineCurve3(last,points.at(-1)!));return curve;
-}
 
 export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void, onLost:()=>void) {
   // Retain the frame for the existing DOM fracture capture and user-initiated photos.
@@ -34,10 +21,10 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   const sun=new T.DirectionalLight('#ffe0b4',2.6);sun.position.set(-12,25,16);sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-21,right:21,top:21,bottom:-21,near:1,far:70});sun.shadow.normalBias=.04;sun.shadow.bias=-.00015;scene.add(sun);
   const seaGeometry=new T.PlaneGeometry(180,180),seaMaterial=new T.MeshStandardMaterial({color:'#83bebc',roughness:1});
-  const sea=new T.Mesh(seaGeometry,seaMaterial);sea.rotation.x=-Math.PI/2;sea.position.y=-.75;sea.receiveShadow=true;scene.add(sea);
+  const sea=new T.Mesh(seaGeometry,seaMaterial);sea.rotation.x=-Math.PI/2;sea.position.y=-1.35;sea.receiveShadow=true;scene.add(sea);
   const glintGeometry=new T.PlaneGeometry(.45,.035),glintMaterial=new T.MeshBasicMaterial({color:'#bfddcd',transparent:true,opacity:.3});
   const glints=new T.InstancedMesh(glintGeometry,glintMaterial,80), matrix=new T.Matrix4(), rotation=new T.Quaternion().setFromEuler(new T.Euler(-Math.PI/2,0,0));
-  for(let i=0;i<80;i++){const x=Math.sin(i*17)*23,z=Math.cos(i*31)*24;matrix.compose(new T.Vector3(x,-.73,z),rotation,new T.Vector3(1+(i%4),1,1));glints.setMatrixAt(i,matrix);}scene.add(glints);
+  for(let i=0;i<80;i++){const x=Math.sin(i*17)*23,z=Math.cos(i*31)*24;matrix.compose(new T.Vector3(x,-1.33,z),rotation,new T.Vector3(1+(i%4),1,1));glints.setMatrixAt(i,matrix);}scene.add(glints);
   let model:ReturnType<typeof buildTown>|null=null,route:ReturnType<typeof deliveryRoute>|null=null;
   let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0;
   let view:TownView='craftsman',span=13,targetSpan=13;
@@ -47,7 +34,7 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   function motionOff(){const setting=document.documentElement.dataset.motion;return setting==='off'||(setting!=='on'&&matchMedia('(prefers-reduced-motion: reduce)').matches);}
   function focus(next:TownView,instant=false) {
     view=next;
-    if(next==='all'){destination.set(0,0,-1.5);targetSpan=33;}
+    if(next==='all'){destination.set(0,0,-.8);targetSpan=36;}
     else {const index=FACILITIES.findIndex(f=>f.id===next),p=model?.position(index);if(p){destination.set(p[0],.8,p[1]+.8);targetSpan=next==='marine_food_plant'?16:9.5;}}
     if(instant||motionOff()){target.copy(destination);span=targetSpan;}dirty=true;
   }

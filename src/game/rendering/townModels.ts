@@ -3,8 +3,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACILITIES } from '../data/facilities';
 import { townTier, type Town } from '../logic/town';
 import type { GameState } from '../types';
+import { buildField, PLOTS } from './townField';
 
-export const PLOTS = [[0,5],[6,5],[-6,5],[-6,-2],[-6,-9],[6,-9],[0,-9],[6,-2],[0,-2]] as const;
 const cloth = {vermillion:'#b95643',indigo:'#426575',leaf:'#758354'};
 const colors = {sand:'#e5d9b7',stone:'#b2bcb0',cream:'#f2e6ce',wood:'#78523c',timber:'#b4885a',roof:'#36575c',red:'#bb5f46',blue:'#64b9c0',ink:'#2f4141',leaf:'#6f966b',gold:'#d6ac60'};
 
@@ -161,26 +161,12 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town) {
     }
   }
 
-  box(root,colors.stone,0,-.65,-1.8,22,1.3,25);
-  box(root,colors.sand,0,-.07,-1.8,21.8,.14,24.8);
-  // Quiet, wide lanes separate districts. Empty plots stay gardens until purchased.
-  for(const z of [-5.5,1.5,8.5]) {
-    box(root,'#b9b7a4',0,.015,z,20,.028,1.05);
-    for(let x=-9.5;x<10;x+=1) box(root,'#efe7cd',x,.033,z,.42,.01,.04);
-  }
-  for(const x of [-9,3,9])box(root,'#b9b7a4',x,.015,1.5,1.05,.027,15);
-  for(let z=-13.4;z<10.7;z+=1.2) for(const x of [-10.8,10.8])box(root,(Math.round(z*10)%2)?'#a4b2a9':'#bcc4b4',x,-.38,z,.45,.75,1.15);
-  for(let x=-10;x<11;x+=1.2)box(root,colors.stone,x,-.38,10.6,1.15,.75,.45);
-  for(const [x,z] of [[-9.5,6],[9.8,5],[-9.5,-9],[3,-9],[9.5,-12],[0,-12],[-3,9.8]])tree(x,z,x===-3);
-  // Pier and a moored boat provide a real shoreline at the port.
-  box(root,colors.wood,-12,.1,-2,4,.22,1.55);
-  for(let x=-13.8;x<-10.2;x+=.25)box(root,colors.timber,x,.23,-2,.19,.05,1.55);
-  for(const x of [-13.5,-11.5])for(const z of [-2.7,-1.3])cyl(root,colors.wood,x,-.1,z,.12,1.8);
+  buildField({root,box,cyl,ball,tree,material,geometries});
   if(counts.sushi_ocean_mining>0) {
-    const boat=group(root,-13.2,-.25,-4.2,true);box(boat,colors.red,0,0,0,1.7,.5,3);box(boat,colors.cream,0,.26,0,1.7,.2,3);box(boat,colors.roof,0,.45,.2,1.5,.15,2.6);box(boat,colors.cream,0,.9,-.4,1,1,1);box(boat,colors.blue,0,1,-.93,.75,.4,.03);cyl(boat,colors.wood,.3,1.8,-.35,.045,2.5);
+    const boat=group(root,-13.2,-.85,-5.15,true);box(boat,colors.red,0,0,0,1.7,.5,3);box(boat,colors.cream,0,.26,0,1.7,.2,3);box(boat,colors.roof,0,.45,.2,1.5,.15,2.6);box(boat,colors.cream,0,.9,-.4,1,1,1);box(boat,colors.blue,0,1,-.93,.75,.4,.03);cyl(boat,colors.wood,.3,1.8,-.35,.045,2.5);
     const flag=group(boat,.3,2.8,-.35,true);box(flag,colors.red,.3,0,0,.6,.3,.04);
     animated.push(t=>{const p=t-(reactions.get('boat')??-99);flag.rotation.y=Math.sin(t*1.2)*.08+(p<2?Math.sin(p*8)*.7:0);});
-    animated.push(t=>{boat.position.y=-.25+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
+    animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
   const builders=[shop,shop,factory,factory,crane,energy,energy,factory,energy];
@@ -204,7 +190,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town) {
   animated.push(t=>{const p=t-(reactions.get('cat')??-99);cat.rotation.y=p<1.8?Math.sin(p*Math.PI/1.8)*.4:0;tail.rotation.z=p<1.8?Math.sin(p*5)*.6:.15;});
   targets.push({key:'cat',point:new T.Vector3(shopX-2.85,1,shopZ+1.15)});
 
-  let delivery: {truck:T.Group;cargo:T.Group;wheels:T.Mesh[];source:readonly number[];destination:readonly number[]}|null=null;
+  let delivery: {truck:T.Group;cargo:T.Group;wheels:T.Mesh[];source:number;destination:number}|null=null;
   if(counts.marine_food_plant>0) {
     const truck=group(root,0,0,0,true), wheels:T.Mesh[]=[];
     box(truck,colors.ink,0,.35,0,1.25,.17,2.1);
@@ -219,7 +205,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town) {
     animated.push(t=>{const p=t-(reactions.get('truck')??-99);wave.rotation.z=p<2?.7+Math.sin(p*10)*.45:0;});
     for(const x of [-.63,.63])for(const z of [-.67,.7]) {const wheel=cyl(truck,colors.ink,x,.27,z,.26,.16);wheel.rotation.z=Math.PI/2;wheels.push(wheel);const hub=cyl(truck,colors.cream,x*1.12,.27,z,.11,.03);hub.rotation.z=Math.PI/2;}
     const cargo=group(truck,0,.76,-.48,true);for(const x of [-.25,.25]){box(cargo,colors.timber,x,0,0,.43,.37,.64);for(const z of [-.2,.2])box(cargo,colors.gold,x,.02,z,.45,.055,.07);}
-    delivery={truck,cargo,wheels,source:position(3),destination:position(0)};
+    delivery={truck,cargo,wheels,source:town.plots[3],destination:town.plots[0]};
     targets.push({key:'truck',point:truck.position});
   }
 
@@ -233,6 +219,10 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town) {
   });
   for(const mesh of remove)mesh.removeFromParent();
   for(const [mat,parts] of buckets) {
+    // Polyhedra and extruded shores are non-indexed; a material can also contain indexed boxes.
+    if(parts.some(g=>!g.index)&&parts.some(g=>g.index)) {
+      parts.forEach((geometry,index)=>{if(geometry.index){parts[index]=geometry.toNonIndexed();geometry.dispose();}});
+    }
     const merged=mergeGeometries(parts);parts.forEach(g=>g.dispose());
     if(merged){geometries.add(merged);const mesh=new T.Mesh(merged,mat);mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);}
   }
