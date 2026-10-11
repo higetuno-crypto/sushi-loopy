@@ -1,0 +1,54 @@
+[
+  {
+    "level": 1,
+    "uniqueTris": 3980,
+    "visibleTris": 4500,
+    "editableMeshes": 17,
+    "materials": 7,
+    "glbMeshNodes": 2,
+    "glbPrimitives": 9,
+    "bytes": 193348,
+    "blendBytes": 552194,
+    "textures": 0,
+    "files": true
+  },
+  {
+    "level": 2,
+    "uniqueTris": 4516,
+    "visibleTris": 5140,
+    "editableMeshes": 19,
+    "materials": 8,
+    "glbMeshNodes": 2,
+    "glbPrimitives": 10,
+    "bytes": 220032,
+    "blendBytes": 601744,
+    "textures": 0,
+    "files": true
+  },
+  {
+    "level": 3,
+    "uniqueTris": 5296,
+    "visibleTris": 6024,
+    "editableMeshes": 22,
+    "materials": 8,
+    "glbMeshNodes": 2,
+    "glbPrimitives": 10,
+    "bytes": 259096,
+    "blendBytes": 644060,
+    "textures": 0,
+    "files": true
+  },
+  {
+    "level": 4,
+    "uniqueTris": 6916,
+    "visibleTris": 7748,
+    "editableMeshes": 28,
+    "materials": 8,
+    "glbMeshNodes": 3,
+    "glbPrimitives": 14,
+    "bytes": 339876,
+    "blendBytes": 724975,
+    "textures": 0,
+    "files": true
+  }
+]

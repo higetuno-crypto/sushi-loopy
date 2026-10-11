@@ -9,7 +9,7 @@ const cloth = {vermillion:'#b95643',indigo:'#426575',leaf:'#758354'};
 const colors = {sand:'#e5d9b7',stone:'#b2bcb0',cream:'#f2e6ce',wood:'#78523c',timber:'#b4885a',roof:'#36575c',red:'#bb5f46',blue:'#64b9c0',ink:'#2f4141',leaf:'#6f966b',gold:'#d6ac60'};
 
 /** Geometry is authored at one scale. Static parts are merged by material after assembly. */
-export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number) {
+export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null) {
   const root=new T.Group(), materials=new Map<string,T.MeshStandardMaterial>(), geometries=new Set<T.BufferGeometry>();
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
@@ -61,16 +61,6 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     });
     return {p,arm,other};
   }
-  function roof(parent:T.Object3D,y:number,width=4.6,depth=3.6) {
-    // Two continuous pitched surfaces, with individually modeled tile ridges.
-    for(const sign of [-1,1]) {
-      const panel=group(parent,0,y,sign*depth/4);panel.rotation.x=sign*.34;
-      box(panel,colors.roof,0,0,0,width,.16,depth*.54);
-      for(let x=-width/2+.1;x<width/2;x+=.24) box(panel,'#45656a',x,.1,0,.065,.055,depth*.54);
-      box(panel,colors.red,0,-.04,sign*depth*.26,width+.08,.18,.12);
-    }
-    box(parent,colors.roof,0,y+depth*.09,0,width+.2,.19,.22);
-  }
   function lantern(parent:T.Object3D,x:number,y:number,z:number) {
     cyl(parent,'#f0c77c',x,y,z,.17,.38);cyl(parent,colors.wood,x,y+.23,z,.14,.08);cyl(parent,colors.wood,x,y-.23,z,.14,.08);
     for(const offset of [-.1,0,.1]) cyl(parent,'#d9a76c',x,y+offset,z,.175,.018);
@@ -82,12 +72,8 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     const sign=new T.Mesh(new T.BoxGeometry(width,height,.06),new T.MeshStandardMaterial({map:texture,roughness:1}));
     sign.position.set(x,y,z);parent.add(sign);geometries.add(sign.geometry);
   }
-  function craftsmanShop(parent:T.Object3D) {
-    // Keep the original counter fixed; Lv.3 grows right and Lv.4 grows behind it.
-    const scale=.78,mainX=level>=3?-.85:0,mainZ=level===4?.725:0;
-    const building=group(parent,level<3?-.85*scale:0,.03,.96-mainZ*scale,true);
-    building.scale.setScalar(scale);
-    const asset=craftsman.clone(true),palette=new Map<T.Material,T.Material>();
+  function cloneBuilding(source:T.Group) {
+    const asset=source.clone(true),palette=new Map<T.Material,T.Material>();
     asset.traverse(obj=>{
       if(!(obj instanceof T.Mesh))return;
       // Each town owns its resources; replacing a level must not dispose the loader's cache.
@@ -95,7 +81,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       const cloneMaterial=(source:T.Material)=>{
         if(!palette.has(source)){
           const copy=source.clone();
-          if(source.name==='Craftsman_Noren'&&copy instanceof T.MeshStandardMaterial&&town.color!=='vermillion')copy.color.set(cloth[town.color]);
+          if((source.name==='Craftsman_Noren'||source.name.startsWith('Conveyor_Noren'))&&copy instanceof T.MeshStandardMaterial&&town.color!=='vermillion')copy.color.set(cloth[town.color]);
           palette.set(source,copy);
         }
         return palette.get(source)!;
@@ -103,7 +89,13 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       obj.material=Array.isArray(obj.material)?obj.material.map(cloneMaterial):cloneMaterial(obj.material);
       obj.castShadow=true;obj.receiveShadow=true;
     });
-    building.add(asset);
+    return asset;
+  }
+  function craftsmanShop(parent:T.Object3D) {
+    // Keep the original counter fixed; Lv.3 grows right and Lv.4 grows behind it.
+    const scale=.78,mainX=level>=3?-.85:0,mainZ=level===4?.725:0;
+    const building=group(parent,level<3?-.85*scale:0,.03,.96-mainZ*scale,true);
+    building.scale.setScalar(scale);building.add(cloneBuilding(craftsman));
     nameSign(building,town.name,mainX,2.31,mainZ+1.32,1.9,.18);
     if(counts.craftsman>0) {
       const chef=person(building,mainX-.5,mainZ+.40,true);chef.p.scale.setScalar(1.3);chef.p.position.y=.24;chef.arm.position.y=.70;chef.other.position.y=.70;
@@ -112,32 +104,37 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       animated.push(t=>{const phase=(t*1.26)%3;plate.visible=phase>1.15;plate.position.z=mainZ+(phase<2?.78+(phase-1.15)*.3:1.03);});
     }
   }
-  function shop(parent:T.Object3D,index:number) {
-    box(parent,colors.wood,0,.2,.5,4.2,.3,4.1);
-    box(parent,colors.cream,0,1.35,-1.25,4,2.2,.18);
-    box(parent,colors.cream,-1.92,1.25,0,.16,2,2.5);
-    for(const x of [-2,-.75,.75,2]) box(parent,colors.wood,x,1.4,1.2,.14,2.6,.14);
-    box(parent,colors.timber,0,.88,2.15,4.35,.18,.63);
-    box(parent,colors.wood,0,.47,2.2,4,.7,.2);
-    for(let x=-1.8;x<2;x+=.27) box(parent,colors.timber,x,.47,2.32,.04,.58,.03);
-    box(parent,colors.wood,0,1.05,-1.15,3.7,.08,.45);
-    for(let x=-1.45;x<1.7;x+=.55) {cyl(parent,colors.cream,x,1.17,-1.12,.13,.15);box(parent,colors.gold,x,1.4,-1.2,.2,.25,.08);}
-    roof(parent,2.5);
-    for(let i=0;i<5;i++)box(parent,cloth[town.color],-1.6+i*.8,2.02,1.6,.75,.46,.045);
-    for(const x of [-1.85,1.85]) lantern(parent,x,1.9,1.82);
-    // Painted physical sign, never a floating character speech bubble.
-    nameSign(parent,'回転寿司',0,2.48,1.82,2.25,.5);
-    if(counts[FACILITIES[index].id]>0) {
-      const chef=person(parent,-.65,1.65,true);chef.p.scale.setScalar(1.05);chef.p.position.y=.35;
-      targets.push({key:'chef',point:new T.Vector3(position(index)[0]-.65,1.3,position(index)[1]+1.65)});
-    }
-    if(index===1) {
-      box(parent,'#455a57',0,1.02,2.15,3.7,.09,.65);
-      for(let i=0;i<6;i++) {
-        const plate=sushi(parent,0,1.1,0,i);plate.userData.dynamic=true;
-        animated.push(t=>{const a=t*.3+i*Math.PI/3;plate.position.set(Math.cos(a)*1.55,1.1,2.15+Math.sin(a)*.26);});
+  function conveyorShop(parent:T.Object3D) {
+    if(!conveyor)throw new Error('Conveyor model must load before assembly');
+    const tier=townTier(counts.conveyor_sushi),building=group(parent,0,.03,.65,true),asset=cloneBuilding(conveyor);
+    building.scale.setScalar(.82);building.add(asset);
+    const prototype=asset.children.find(o=>o.name.startsWith('Conveyor_Plate'));
+    if(!prototype)throw new Error('Conveyor plate prototype missing');
+    prototype.visible=false;
+    // One draw per plate material, regardless of how many dishes circle the counter.
+    const plates:T.InstancedMesh[]=[],count=5+tier,matrix=new T.Matrix4();
+    const lane=new T.EllipseCurve(0,.93,1.66,.63,0,Math.PI*2,false,0),point=new T.Vector2(),tangent=new T.Vector2();
+    prototype.traverse(o=>{
+      if(!(o instanceof T.Mesh))return;
+      const batch=new T.InstancedMesh(o.geometry,o.material,count);batch.name='Conveyor_Dishes';batch.castShadow=true;batch.receiveShadow=true;
+      batch.instanceMatrix.setUsage(T.DynamicDrawUsage);batch.frustumCulled=false;building.add(batch);plates.push(batch);
+    });
+    const crown=asset.getObjectByName('Crown_Carousel');
+    animated.push(t=>{
+      for(let i=0;i<count;i++) {
+        const progress=(t/20+i/count)%1;
+        lane.getPointAt(progress,point);lane.getTangentAt(progress,tangent);
+        matrix.makeRotationY(-Math.atan2(tangent.y,tangent.x));matrix.setPosition(point.x,1.162,point.y);
+        for(const batch of plates)batch.setMatrixAt(i,matrix);
       }
-      for(const x of [-1.25,0,1.25]) {cyl(parent,colors.red,x,.47,2.95,.27,.16);cyl(parent,colors.wood,x,.22,2.95,.09,.4);const customer=person(parent,x,2.95);customer.p.rotation.y=Math.PI;customer.p.scale.setScalar(.75);}
+      for(const batch of plates)batch.instanceMatrix.needsUpdate=true;
+      if(crown)crown.rotation.y=-t*.18;
+    });
+    const chef=person(building,-.6,-.30,true);chef.p.position.y=.20;chef.p.scale.setScalar(1.2);
+    targets.push({key:'chef',point:new T.Vector3(position(1)[0]-.6*.82,1.1,position(1)[1]+.65-.30*.82)});
+    const seats=tier<3?[-1.12,0,1.12]:[-1.26,-.42,.42,1.26];
+    for(const x of seats.slice(0,Math.min(tier,3))) {
+      const guest=person(building,x,2.23);guest.p.position.y=.42;guest.p.scale.setScalar(.85);guest.p.rotation.y=Math.PI;
     }
   }
   function factory(parent:T.Object3D,index:number) {
@@ -198,15 +195,15 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
-  const builders=[craftsmanShop,shop,factory,factory,crane,energy,energy,factory,energy];
+  const builders=[craftsmanShop,conveyorShop,factory,factory,crane,energy,energy,factory,energy];
   FACILITIES.forEach((f,index)=>{
     const [x,z]=position(index), owned=counts[f.id];
     if(owned===0 && index!==0) {tree(x,z);return;}
     const building=group(root,x,0,z);
-    if(index!==0)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
+    if(index>1)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
     builders[index](building,index);
     targets.push({key:f.id,point:new T.Vector3(x,1,z)});
-    if(index!==0)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
+    if(index>1)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
   });
   const [shopX,shopZ]=position(0);
   if(town.bench) {
@@ -261,7 +258,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     react(key:string){reactions.set(key,time);},
     dispose(){
       const textures=new Set<T.Texture>(),mats=new Set<T.Material>();
-      root.traverse(obj=>{if(obj instanceof T.Mesh){geometries.add(obj.geometry);const list=Array.isArray(obj.material)?obj.material:[obj.material];list.forEach(m=>{mats.add(m);if(m instanceof T.MeshStandardMaterial&&m.map)textures.add(m.map);});}});
+      root.traverse(obj=>{if(obj instanceof T.Mesh){if(obj instanceof T.InstancedMesh)obj.dispose();geometries.add(obj.geometry);const list=Array.isArray(obj.material)?obj.material:[obj.material];list.forEach(m=>{mats.add(m);if(m instanceof T.MeshStandardMaterial&&m.map)textures.add(m.map);});}});
       geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
     },
   };

@@ -27,11 +27,11 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   const glints=new T.InstancedMesh(glintGeometry,glintMaterial,80), matrix=new T.Matrix4(), rotation=new T.Quaternion().setFromEuler(new T.Euler(-Math.PI/2,0,0));
   for(let i=0;i<80;i++){const x=Math.sin(i*17)*23,z=Math.cos(i*31)*24;matrix.compose(new T.Vector3(x,-1.33,z),rotation,new T.Vector3(1+(i%4),1,1));glints.setMatrixAt(i,matrix);}scene.add(glints);
   let model:ReturnType<typeof buildTown>|null=null,route:ReturnType<typeof deliveryRoute>|null=null;
-  const loader=new GLTFLoader(),assets=new Map<number,Promise<T.Group>>();
+  const loader=new GLTFLoader(),assets=new Map<string,Promise<T.Group>>();
   let revision=0;
-  function loadCraftsman(level:number) {
-    if(!assets.has(level))assets.set(level,loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/01-craftsman/craftsman-lv${level}.glb`).then(gltf=>gltf.scene).catch(error=>{assets.delete(level);throw error;}));
-    return assets.get(level)!;
+  function loadModel(path:string) {
+    if(!assets.has(path))assets.set(path,loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/${path}.glb`).then(gltf=>gltf.scene).catch(error=>{assets.delete(path);throw error;}));
+    return assets.get(path)!;
   }
   let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0;
   let view:TownView='craftsman',span=13,targetSpan=13;
@@ -102,14 +102,15 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   resize();frame=requestAnimationFrame(render);
   return {
     update(counts:GameState['facilityCounts'],town:Town) {
-      const request=++revision,level=Math.max(1,townTier(counts.craftsman));
+      const request=++revision,level=Math.max(1,townTier(counts.craftsman)),conveyorLevel=townTier(counts.conveyor_sushi);
       host.dataset.craftsmanStatus='loading';
-      void loadCraftsman(level).then(asset=>{
+      host.dataset.conveyorStatus=conveyorLevel?'loading':'absent';
+      void Promise.all([loadModel(`01-craftsman/craftsman-lv${level}`),conveyorLevel?loadModel(`02-conveyor-sushi/conveyor-lv${conveyorLevel}`):null]).then(([asset,conveyor])=>{
         if(disposed||request!==revision)return;
         const hadModel=!!model;
         const hadDelivery=!!model?.delivery;
         const truckRotation=model?.delivery?.truck.quaternion.clone();
-        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level);scene.add(model.root);
+        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor);scene.add(model.root);
         if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
         route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
         if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
@@ -118,7 +119,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
         sun.color.set(evening?'#ffc18d':'#ffe0b4');sun.intensity=rain?1.2:evening?2.3:2.6;ambient.intensity=evening?1.3:rain?1.8:1.9;
         focus(view,!hadModel);dirty=true;
         host.dataset.craftsmanLevel=String(level);host.dataset.craftsmanStatus='ready';
-      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';onLost();}});
+        host.dataset.conveyorLevel=String(conveyorLevel);host.dataset.conveyorStatus=conveyorLevel?'ready':'absent';
+      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';host.dataset.conveyorStatus='error';onLost();}});
     },
     focus,
     pause(value:boolean){frozen=value;dirty=true;},

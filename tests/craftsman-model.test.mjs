@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { Box3, Mesh } from 'three';
+import { Box3, Mesh, InstancedMesh, Matrix4, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createServer } from 'vite';
 const vite=await createServer({server:{middlewareMode:true,watch:null},appType:'custom',logLevel:'silent'});
@@ -47,4 +47,46 @@ test('approved craftsman levels fit every plot, retain their geometry, and own t
     }
     for(const o of source){o.geometry.dispose();o.material.dispose();}
   }
+});
+
+test('conveyor levels fit all plots and the instanced dishes follow a closed, constant-speed belt',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris,visibleTris] of [[1,1,3980,4500],[2,5,4516,5140],[3,10,5296,6024],[4,25,6916,7748]]) {
+    const conveyor=await load(`public/assets/models/02-conveyor-sushi/conveyor-lv${level}.glb`);
+    const source=[];conveyor.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    let disposed=false;for(const o of source)for(const resource of [o.geometry,o.material])resource.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='conveyor_sushi'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();town.color='leaf';[town.plots[1],town.plots[slot]]=[slot,1];
+      const model=buildTown(counts,town,craftsman,1,conveyor);
+      const asset=model.root.getObjectByName(`Conveyor_L${level}`).parent;
+      const bounds=new Box3().setFromObject(asset),[x,z]=PLOTS[slot];
+      assert.ok(bounds.min.x>=x-2.4&&bounds.max.x<=x+2.4);
+      assert.ok(bounds.min.z>=z-1.8&&bounds.max.z<=z+3.25);
+      assert.ok(Math.abs(bounds.min.y-.03)<.001);
+      const prototype=asset.children.find(o=>o.name.startsWith('Conveyor_Plate'));
+      assert.equal(prototype.visible,false);
+      const plates=[];model.root.traverse(o=>{if(o instanceof InstancedMesh&&o.name==='Conveyor_Dishes')plates.push(o);});
+      assert.equal(plates.length,level===4?3:2);assert.ok(plates.every(o=>o.count===5+level));
+      assert.equal(tris+(4+level)*plates.reduce((n,o)=>n+o.geometry.index.count/3,0),visibleTris);
+      asset.traverse(o=>{if(o instanceof Mesh&&o.material.name.startsWith('Conveyor_Noren'))assert.equal(o.material.color.getHexString(),'758354');});
+      const matrix=new Matrix4(),point=new Vector3(),speeds=[];
+      for(let sample=0;sample<20;sample++) {
+        model.tick(sample,.05);plates[0].getMatrixAt(0,matrix);const before=new Vector3().setFromMatrixPosition(matrix);
+        assert.ok(Math.abs((before.x/1.66)**2+((before.z-.93)/.63)**2-1)<.0001,'dish stays on the belt');
+        assert.ok(Math.abs(before.y-1.162)<.0001);
+        model.tick(sample+.05,.05);plates[0].getMatrixAt(0,matrix);point.setFromMatrixPosition(matrix);speeds.push(point.distanceTo(before));
+      }
+      assert.ok(Math.max(...speeds)/Math.min(...speeds)<1.04,'dishes do not surge through the elliptical turns');
+      model.tick(0,0);const initial=plates[0].instanceMatrix.array.slice();model.tick(20,0);
+      assert.deepEqual(plates[0].instanceMatrix.array,initial,'one full loop has no seam jump');
+      const crown=asset.getObjectByName('Crown_Carousel');assert.equal(!!crown,level===4);
+      if(crown){const angle=crown.rotation.y;model.tick(21,1);assert.notEqual(crown.rotation.y,angle);}
+      model.dispose();assert.equal(disposed,false);
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
 });
