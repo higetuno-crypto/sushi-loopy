@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "holdCancel": true,
+      "cameraEscapePrevented": true
+    },
+    {
+      "saveCodeV5": true,
+      "firstDelivery": true,
+      "synchronizationThreeStages": true,
+      "silentLoop": true,
+      "previousTown": true
+    }
+  ],
+  "errors": []
+}

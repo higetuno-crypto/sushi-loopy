@@ -41,7 +41,7 @@ try{
   };
   await buy('海洋食材プラント');
   await page.locator('.town-viewport[data-delivery="loading"]').waitFor();
-  await page.locator('.town-viewport[data-delivery="outbound"]').waitFor({timeout:8000});
+  await page.locator('.town-viewport[data-delivery="outbound"]').waitFor({timeout:8000}).catch(async e=>{console.log(await page.locator('.town-viewport').evaluate(el=>({dataset:{...el.dataset},rect:el.getBoundingClientRect().toJSON(),scrollY,height:innerHeight,motion:document.documentElement.dataset.motion,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,hidden:document.hidden})));await page.screenshot({path:`${output}/delivery-failure.png`});throw e;});
   await page.screenshot({path:`${output}/first-delivery.png`});
   await page.locator('.town-viewport[data-delivery="unloading"]').waitFor({timeout:16000});
   await page.screenshot({path:`${output}/unloading.png`});

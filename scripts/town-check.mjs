@@ -14,7 +14,7 @@ async function fresh(width,height,save){
   if(save)await context.addInitScript(data=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(data));sessionStorage.setItem('seeded','yes');}},save);
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
-  await page.goto(base);await page.locator('.town-viewport[data-ready="true"]').first().waitFor({timeout:20000});
+  await page.goto(base);await page.locator('.town-viewport[data-ready="true"][data-craftsman-status="ready"]').first().waitFor({timeout:20000});
   return {page,context};
 }
 try {
@@ -32,6 +32,24 @@ try {
     assert.equal(await page.locator('[data-facility="craftsman"] .facility-owned').innerText(),'× 1');
     await page.screenshot({path:`${output}/${width}-craftsman.png`});
     results.push({width,height,firstPurchase:true,drawCalls:await page.locator('.town-viewport').getAttribute('data-draw-calls')});
+    await context.close();
+  }
+  // Cross real purchase thresholds, then restore the matching model from the save.
+  for(const [level,count] of [[2,5],[3,10],[4,25]]) {
+    const save=seed();save.game.facilityCounts.craftsman=count-1;
+    const {page,context}=await fresh(390,844,save);
+    assert.equal(await page.locator('.town-viewport').getAttribute('data-craftsman-level'),String(level-1));
+    await page.getByRole('button',{name:'職人さんを購入',exact:true}).click();
+    await page.locator(`.town-viewport[data-craftsman-level="${level}"][data-craftsman-status=ready]`).waitFor();
+    await page.locator('.town-viewport').scrollIntoViewIfNeeded();await page.waitForTimeout(800);
+    await page.screenshot({path:`${output}/craftsman-lv${level}.png`});
+    await page.getByRole('button',{name:'模様替え',exact:true}).click();
+    await page.getByRole('group',{name:'のれんの色',exact:true}).getByRole('button',{name:'藍',exact:true}).click();
+    await page.locator('.town-viewport[data-craftsman-status=ready]').waitFor();
+    await page.waitForTimeout(5200);await page.reload();
+    await page.locator(`.town-viewport[data-craftsman-level="${level}"][data-craftsman-status=ready]`).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('sushi-loopy.save')).game.town.color),'indigo');
+    results.push({craftsmanLevel:level,purchaseThreshold:count,restoredModel:true,colorRetained:true});
     await context.close();
   }
   const {page,context}=await fresh(390,844,seed());
@@ -85,7 +103,7 @@ try {
   results.push({legacyMigration:true,motionStop:true,photo:true,customization:true,layoutUndo:true,reload:true,cameraEscapePrevented:true});
   await context.close();
   // All nine models catch mixed indexed/non-indexed geometry dropping a material bucket.
-  const full=seed();full.game.facilityCounts.global_freshness_sync=1;full.game.syncCount=1;
+  const full=seed();full.game.facilityCounts.global_freshness_sync=1;full.game.facilityCounts.craftsman=25;full.game.syncCount=1;
   const islandCase=await fresh(390,844,full);
   await islandCase.page.getByRole('button',{name:'全景',exact:true}).click();
   await islandCase.page.waitForTimeout(1200);

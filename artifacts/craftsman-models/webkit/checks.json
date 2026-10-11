@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "height": 568,
+      "firstPurchase": true,
+      "drawCalls": "92"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "firstPurchase": true,
+      "drawCalls": "92"
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "firstPurchase": true,
+      "drawCalls": "104"
+    },
+    {
+      "craftsmanLevel": 2,
+      "purchaseThreshold": 5,
+      "restoredModel": true,
+      "colorRetained": true
+    },
+    {
+      "craftsmanLevel": 3,
+      "purchaseThreshold": 10,
+      "restoredModel": true,
+      "colorRetained": true
+    },
+    {
+      "craftsmanLevel": 4,
+      "purchaseThreshold": 25,
+      "restoredModel": true,
+      "colorRetained": true
+    },
+    {
+      "legacyMigration": true,
+      "motionStop": true,
+      "photo": true,
+      "customization": true,
+      "layoutUndo": true,
+      "reload": true,
+      "cameraEscapePrevented": true
+    },
+    {
+      "allNineModels": true,
+      "islandRelocation": true,
+      "truckCrossesBridge": true,
+      "bridgePosition": "4.695,0.000,11.395"
+    },
+    {
+      "webglSceneInFracture": true,
+      "collapsePausesTown": true
+    }
+  ],
+  "errors": []
+}

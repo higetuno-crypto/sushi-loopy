@@ -1,6 +1,7 @@
 import * as T from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildTown } from './townModels';
-import type { Town } from '../logic/town';
+import { townTier, type Town } from '../logic/town';
 import type { FacilityId, GameState } from '../types';
 import { FACILITIES } from '../data/facilities';
 import { deliveryRoute } from './townField';
@@ -26,6 +27,12 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   const glints=new T.InstancedMesh(glintGeometry,glintMaterial,80), matrix=new T.Matrix4(), rotation=new T.Quaternion().setFromEuler(new T.Euler(-Math.PI/2,0,0));
   for(let i=0;i<80;i++){const x=Math.sin(i*17)*23,z=Math.cos(i*31)*24;matrix.compose(new T.Vector3(x,-1.33,z),rotation,new T.Vector3(1+(i%4),1,1));glints.setMatrixAt(i,matrix);}scene.add(glints);
   let model:ReturnType<typeof buildTown>|null=null,route:ReturnType<typeof deliveryRoute>|null=null;
+  const loader=new GLTFLoader(),assets=new Map<number,Promise<T.Group>>();
+  let revision=0;
+  function loadCraftsman(level:number) {
+    if(!assets.has(level))assets.set(level,loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/01-craftsman/craftsman-lv${level}.glb`).then(gltf=>gltf.scene).catch(error=>{assets.delete(level);throw error;}));
+    return assets.get(level)!;
+  }
   let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0;
   let view:TownView='craftsman',span=13,targetSpan=13;
   const target=new T.Vector3(0,0,5),destination=target.clone(),offset=new T.Vector3(10,14,20).normalize().multiplyScalar(80);
@@ -95,17 +102,23 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   resize();frame=requestAnimationFrame(render);
   return {
     update(counts:GameState['facilityCounts'],town:Town) {
-      const hadModel=!!model;
-      const hadDelivery=!!model?.delivery;
-      const truckRotation=model?.delivery?.truck.quaternion.clone();
-      if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town);scene.add(model.root);
-      if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
-      route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
-      if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
-      const evening=town.weather==='evening',rain=town.weather==='rain';
-      scene.background=new T.Color(evening?'#9cb5b2':rain?'#9cb6b7':'#97c7c5');seaMaterial.color.set(evening?'#648a91':rain?'#6b929a':'#479fac');
-      sun.color.set(evening?'#ffc18d':'#ffe0b4');sun.intensity=rain?1.2:evening?2.3:2.6;ambient.intensity=evening?1.3:rain?1.8:1.9;
-      focus(view,!hadModel);dirty=true;
+      const request=++revision,level=Math.max(1,townTier(counts.craftsman));
+      host.dataset.craftsmanStatus='loading';
+      void loadCraftsman(level).then(asset=>{
+        if(disposed||request!==revision)return;
+        const hadModel=!!model;
+        const hadDelivery=!!model?.delivery;
+        const truckRotation=model?.delivery?.truck.quaternion.clone();
+        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level);scene.add(model.root);
+        if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
+        route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
+        if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
+        const evening=town.weather==='evening',rain=town.weather==='rain';
+        scene.background=new T.Color(evening?'#9cb5b2':rain?'#9cb6b7':'#97c7c5');seaMaterial.color.set(evening?'#648a91':rain?'#6b929a':'#479fac');
+        sun.color.set(evening?'#ffc18d':'#ffe0b4');sun.intensity=rain?1.2:evening?2.3:2.6;ambient.intensity=evening?1.3:rain?1.8:1.9;
+        focus(view,!hadModel);dirty=true;
+        host.dataset.craftsmanLevel=String(level);host.dataset.craftsmanStatus='ready';
+      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';onLost();}});
     },
     focus,
     pause(value:boolean){frozen=value;dirty=true;},
@@ -119,6 +132,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
       disposed=true;cancelAnimationFrame(frame);observer.disconnect();intersection.disconnect();settings.disconnect();preference.removeEventListener('change',preferenceChange);
       host.removeEventListener('pointerdown',down);host.removeEventListener('pointerup',select);host.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('webglcontextlost',contextLost);
       model?.dispose();seaGeometry.dispose();seaMaterial.dispose();glintGeometry.dispose();glintMaterial.dispose();glints.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
+      for(const asset of assets.values())void asset.then(root=>root.traverse(obj=>{if(obj instanceof T.Mesh){obj.geometry.dispose();for(const mat of Array.isArray(obj.material)?obj.material:[obj.material])mat.dispose();}}),()=>{});
+      assets.clear();
     },
   };
 }

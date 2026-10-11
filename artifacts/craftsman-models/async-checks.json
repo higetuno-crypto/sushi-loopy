@@ -1,0 +1,8 @@
+{
+  "staleLoadIgnored": true,
+  "latestLevelUnderReducedMotion": true,
+  "networkFailureRetainsTown": true,
+  "networkRetry": true,
+  "dispose": true,
+  "errors": []
+}
