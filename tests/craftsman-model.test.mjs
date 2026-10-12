@@ -14,6 +14,42 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
+test('fusion levels keep sushi inside the chamber and the sun ring clear on every plot',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,4068],[2,5,5400],[3,10,6984],[4,25,8240]]) {
+    const fusion=await load(`public/assets/models/06-fusion-sushi-converter/fusion-lv${level}.glb`),source=[];
+    fusion.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    assert.ok(source.every(o=>!o.material.transparent&&!o.material.map),'opaque texture-free materials avoid glass sorting and texture downloads');
+    let disposed=false;for(const o of source)for(const r of [o.geometry,o.material])r.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='fusion_sushi_converter'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[5],town.plots[slot]]=[slot,5];
+      const model=buildTown(counts,town,craftsman,1,null,null,null,null,fusion);
+      const imported=model.root.getObjectByName(`Fusion_L${level}`);assert.ok(imported,'the authored fusion reactor replaces the generic energy model');
+      const asset=imported.parent,[x,z]=PLOTS[slot],find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const rotor=find('Fusion_Rotor'),halo=find('Fusion_Halo');assert.ok(rotor);assert.equal(!!halo,level===4);
+      const core=[];asset.traverse(o=>{if(o instanceof Mesh&&o.material.name.includes('_Core'))core.push(o.material);});assert.ok(core.length);
+      const position=rotor.position.clone();model.tick(0,0);const start=rotor.quaternion.clone(),light=core[0].emissiveIntensity,haloStart=halo?.quaternion.clone();
+      for(let t=0;t<=60;t+=.5) {
+        model.tick(t,.5);const b=new Box3().setFromObject(asset);
+        assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,'moving parts stay inside the plot');
+        assert.ok(Math.abs(b.min.y-.03)<.001,'foundation rests on the plot');
+        assert.ok(rotor.position.equals(position),'the bearing remains attached');
+        assert.ok(core.every(m=>m.emissiveIntensity>=.28&&m.emissiveIntensity<=.46));
+      }
+      model.tick(2,0);assert.ok(rotor.quaternion.angleTo(start)>.1);assert.notEqual(core[0].emissiveIntensity,light);
+      if(halo)assert.ok(halo.quaternion.angleTo(haloStart)>.1);
+      rotor.traverse(o=>{if(o instanceof Mesh){const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(Math.hypot(p.getX(i),p.getY(i))<rotor.userData.chamber_radius,'sushi clears the chamber throughout rotation');}});
+      if(halo)halo.traverse(o=>{if(o instanceof Mesh){const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(Math.hypot(p.getX(i),p.getY(i))>=halo.userData.inner_radius-.001,'the rotating sun ring has an open centre');}});
+      assert.ok(model.targets.some(t=>t.key==='fusion_sushi_converter'));model.dispose();assert.equal(disposed,false);
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
+
 test('ocean mining levels keep the drill, ore hoist, crown and fishing boat intact across all plots',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');

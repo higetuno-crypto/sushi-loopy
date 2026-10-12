@@ -8,6 +8,7 @@ const facilities={
   conveyor_sushi:{name:'回転寿司オープン',folder:'02-conveyor-sushi',file:'conveyor',status:'conveyor',output:'conveyor-models'},
   auto_sushi_machine:{name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'},
   marine_food_plant:{name:'海洋食材プラント',folder:'04-marine-food-plant',file:'marine-plant',status:'plant',output:'marine-models'},
+  fusion_sushi_converter:{name:'寿司融合発電',folder:'06-fusion-sushi-converter',file:'fusion',status:'fusion',output:'fusion-models'},
   sushi_ocean_mining:{name:'SUSHI海洋採掘',folder:'05-sushi-ocean-mining',file:'ocean-mining',status:'mining',output:'mining-models'},
 };
 assert.ok(Object.hasOwn(facilities,target));

@@ -1,0 +1,54 @@
+[
+  {
+    "level": 1,
+    "triangles": 4068,
+    "editableMeshes": 11,
+    "materials": 9,
+    "meshNodes": 2,
+    "primitives": 12,
+    "bytes": 198212,
+    "blendBytes": 566346,
+    "textures": 0,
+    "topologyClean": true,
+    "closedComponents": 78
+  },
+  {
+    "level": 2,
+    "triangles": 5400,
+    "editableMeshes": 12,
+    "materials": 9,
+    "meshNodes": 2,
+    "primitives": 12,
+    "bytes": 257940,
+    "blendBytes": 614366,
+    "textures": 0,
+    "topologyClean": true,
+    "closedComponents": 98
+  },
+  {
+    "level": 3,
+    "triangles": 6984,
+    "editableMeshes": 13,
+    "materials": 9,
+    "meshNodes": 2,
+    "primitives": 12,
+    "bytes": 329368,
+    "blendBytes": 671137,
+    "textures": 0,
+    "topologyClean": true,
+    "closedComponents": 138
+  },
+  {
+    "level": 4,
+    "triangles": 8240,
+    "editableMeshes": 15,
+    "materials": 9,
+    "meshNodes": 3,
+    "primitives": 15,
+    "bytes": 388168,
+    "blendBytes": 724511,
+    "textures": 0,
+    "topologyClean": true,
+    "closedComponents": 170
+  }
+]
