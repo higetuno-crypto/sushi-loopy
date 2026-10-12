@@ -47,7 +47,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   }
   function resize(){const rect=host.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);renderer.setSize(width,height);dirty=true;}
   const observer=new ResizeObserver(resize);observer.observe(host);
-  const intersection=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;last=0;dirty=true;});intersection.observe(host);
+  // A scroll can queue both exit and re-entry before the callback runs; use the latest entry.
+  const intersection=new IntersectionObserver(entries=>{visible=entries[entries.length-1].isIntersecting;last=0;dirty=true;});intersection.observe(host);
   const settings=new MutationObserver(()=>{dirty=true;});settings.observe(document.documentElement,{attributes:true,attributeFilter:['data-motion']});
   const preference=matchMedia('(prefers-reduced-motion: reduce)'),preferenceChange=()=>{dirty=true;};preference.addEventListener('change',preferenceChange);
   function render(now:number) {

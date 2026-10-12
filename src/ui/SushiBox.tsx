@@ -47,7 +47,7 @@ export function SushiBox() {
       frame = requestAnimationFrame(followBeat);
     };
     const update = () => { cancelAnimationFrame(frame); if (visible && !document.hidden) frame = requestAnimationFrame(followBeat); };
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; update(); });
+    const observer = new IntersectionObserver(entries => { visible = entries[entries.length - 1].isIntersecting; update(); });
     observer.observe(element);
     document.addEventListener('visibilitychange', update);
     return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); cancelAnimationFrame(frame); };

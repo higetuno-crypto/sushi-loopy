@@ -16,7 +16,7 @@ export function MobileTapDock() {
   useEffect(() => {
     const target = document.querySelector('.sushi-button');
     if (!target) return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(!entry.isIntersecting), { threshold: 0 });
+    const observer = new IntersectionObserver(entries => setVisible(!entries[entries.length - 1].isIntersecting), { threshold: 0 });
     observer.observe(target);
     return () => observer.disconnect();
   }, []);

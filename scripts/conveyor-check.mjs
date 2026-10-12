@@ -13,6 +13,15 @@ try {
     const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
     const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map(id=>[id,id==='craftsman'?25:id==='conveyor_sushi'?count-1:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
+    if(level===1)await context.addInitScript(()=>{
+      const Native=window.IntersectionObserver,observers=new Map();
+      window.IntersectionObserver=class extends Native {
+        constructor(callback,options){super(callback,options);this.callback=callback;}
+        observe(target){super.observe(target);observers.set(this,target);}
+        disconnect(){super.disconnect();observers.delete(this);}
+      };
+      window.testVisibilityBatch=()=>{for(const [observer,target] of observers)observer.callback([false,true].map((isIntersecting,time)=>({target,isIntersecting,time})),observer);};
+    });
     const page=await context.newPage(),requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
     page.on('request',r=>{if(r.url().includes('/02-conveyor-sushi/'))requests.push(r.url());});
@@ -28,6 +37,12 @@ try {
     const before=await scene.screenshot({path:`${output}/lv${level}-scene.png`});
     const time=Number(await scene.getAttribute('data-time'));await page.waitForTimeout(1000);
     assert.ok(Number(await scene.getAttribute('data-time'))>time);assert.ok(!before.equals(await scene.screenshot()),'the operating facility changes visually');
+    if(level===1) {
+      const time=Number(await scene.getAttribute('data-time'));
+      await page.evaluate(()=>window.testVisibilityBatch());await page.waitForTimeout(400);
+      assert.ok(Number(await scene.getAttribute('data-time'))>time,'batched offscreen/onscreen notifications must leave the town animating');
+      assert.equal(await page.locator('.mobile-tap-dock').count(),0,'the dock uses the latest visibility notification too');
+    }
     await page.screenshot({path:`${output}/lv${level}-mobile.png`});
     if(level===4){await page.setViewportSize({width:320,height:568});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`${output}/lv4-320.png`});await page.setViewportSize({width:390,height:844});}
     await page.getByRole('button',{name:'模様替え',exact:true}).click();
