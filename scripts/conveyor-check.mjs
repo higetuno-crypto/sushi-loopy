@@ -8,6 +8,7 @@ const facilities={
   conveyor_sushi:{name:'回転寿司オープン',folder:'02-conveyor-sushi',file:'conveyor',status:'conveyor',output:'conveyor-models'},
   auto_sushi_machine:{name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'},
   marine_food_plant:{name:'海洋食材プラント',folder:'04-marine-food-plant',file:'marine-plant',status:'plant',output:'marine-models'},
+  sushi_ocean_mining:{name:'SUSHI海洋採掘',folder:'05-sushi-ocean-mining',file:'ocean-mining',status:'mining',output:'mining-models'},
 };
 assert.ok(Object.hasOwn(facilities,target));
 const facility={id:target,...facilities[target]};
@@ -42,6 +43,11 @@ try {
     assert.equal(await scene.getAttribute('data-view'),facility.id);
     assert.equal(await page.locator(`[data-facility=${facility.id}] .facility-owned`).innerText(),`× ${count}`);
     assert.ok(requests.some(url=>url.includes(`${facility.file}-lv${level}.glb`)));
+    if(target==='sushi_ocean_mining') {
+      await page.locator('.town-interactions summary').click();
+      await page.getByRole('button',{name:'漁船に合図する',exact:true}).click();
+      await page.locator('.town-interactions summary').click();
+    }
     const before=await scene.screenshot({path:`${output}/lv${level}-scene.png`});
     const time=Number(await scene.getAttribute('data-time'));await page.waitForTimeout(1000);
     assert.ok(Number(await scene.getAttribute('data-time'))>time);assert.ok(!before.equals(await scene.screenshot()),'the operating facility changes visually');

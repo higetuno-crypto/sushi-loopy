@@ -1,0 +1,26 @@
+[
+  {
+    "level": 1,
+    "components": 158,
+    "nonpositive_components": [],
+    "saved_scene": "SL_05_Mining_L1_v01"
+  },
+  {
+    "level": 2,
+    "components": 176,
+    "nonpositive_components": [],
+    "saved_scene": "SL_05_Mining_L2_v01"
+  },
+  {
+    "level": 3,
+    "components": 230,
+    "nonpositive_components": [],
+    "saved_scene": "SL_05_Mining_L3_v01"
+  },
+  {
+    "level": 4,
+    "components": 271,
+    "nonpositive_components": [],
+    "saved_scene": "SL_05_Mining_L4_v01"
+  }
+]

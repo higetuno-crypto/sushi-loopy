@@ -14,6 +14,51 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
+test('ocean mining levels keep the drill, ore hoist, crown and fishing boat intact across all plots',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,4636],[2,5,5124],[3,10,6876],[4,25,7884]]) {
+    const mining=await load(`public/assets/models/05-sushi-ocean-mining/ocean-mining-lv${level}.glb`),source=[];
+    mining.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    let disposed=false;for(const o of source)for(const r of [o.geometry,o.material])r.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='sushi_ocean_mining'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[4],town.plots[slot]]=[slot,4];
+      const model=buildTown(counts,town,craftsman,1,null,null,null,mining);
+      const imported=model.root.getObjectByName(`Mining_L${level}`);assert.ok(imported,'the GLB replaces the old mining crane');
+      const asset=imported.parent,[x,z]=PLOTS[slot],bounds=new Box3().setFromObject(asset);
+      assert.ok(bounds.min.x>=x-2.4&&bounds.max.x<=x+2.4&&bounds.min.z>=z-1.8&&bounds.max.z<=z+3.25);
+      assert.ok(Math.abs(bounds.min.y-.03)<.001,'all four pylons rest on the plot');
+      const find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const hoist=find('Mining_Hoist'),cable=find('Mining_Cable'),drill=find('Mining_Drill'),crown=find('Mining_Crown');
+      assert.ok(hoist&&cable&&drill);assert.equal(!!crown,level===4);
+      model.tick(0,0);const first=hoist.position.y,rotation=drill.quaternion.clone(),ore=crown?.quaternion.clone();
+      for(let t=0;t<=10;t+=.25) {
+        model.tick(t,.25);model.root.updateMatrixWorld(true);
+        assert.ok(Math.abs(cable.position.y+cable.scale.y/2-cable.userData.anchor_z)<1e-5);
+        assert.ok(Math.abs(cable.position.y-cable.scale.y/2-hoist.position.y-hoist.userData.sling_height)<1e-5);
+        assert.ok(cable.scale.y>.1&&hoist.position.y>1.39,'cargo stays above the deck and rope stays taut');
+        assert.equal(cable.position.x,hoist.position.x);assert.equal(cable.position.z,hoist.position.z);
+        const swept=new Box3().setFromObject(asset);assert.ok(swept.min.x>=x-2.4&&swept.max.x<=x+2.4&&swept.min.z>=z-1.8&&swept.max.z<=z+3.25);
+      }
+      assert.ok(Math.abs(hoist.position.y-first)<1e-8);model.tick(2.5,0);
+      assert.ok(hoist.position.y-first>.15&&drill.quaternion.angleTo(rotation)>.1);
+      if(crown)assert.ok(crown.quaternion.angleTo(ore)>.1);
+      // Measure the actual authored vertices against the deck bore and crown's inner radius.
+      for(const [object,radius] of [[drill,.27],...(crown?[[crown,.58]]:[])])object.traverse(o=>{
+        if(!(o instanceof Mesh))return;
+        const p=o.geometry.attributes.position;
+        for(let i=0;i<p.count;i++)assert.ok(Math.hypot(p.getX(i),p.getZ(i))<radius,'rotating part clears its surrounding collar');
+      });
+      assert.ok(model.targets.some(t=>t.key==='boat'),'buying mining still unlocks the fishing boat');
+      model.react('boat');model.tick(2.8,.3);model.dispose();assert.equal(disposed,false);
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
+
 test('marine plant levels fit every plot, keep the hoist attached and preserve delivery routing',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');

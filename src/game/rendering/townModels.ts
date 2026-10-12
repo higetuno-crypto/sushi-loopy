@@ -8,8 +8,12 @@ import { buildField, PLOTS } from './townField';
 const cloth = {vermillion:'#b95643',indigo:'#426575',leaf:'#758354'};
 const colors = {sand:'#e5d9b7',stone:'#b2bcb0',cream:'#f2e6ce',wood:'#78523c',timber:'#b4885a',roof:'#36575c',red:'#bb5f46',blue:'#64b9c0',ink:'#2f4141',leaf:'#6f966b',gold:'#d6ac60'};
 
+function namedPart(asset:T.Object3D,prefix:string) {
+  let found:T.Object3D|undefined;asset.traverse(o=>{if(!found&&o.name.startsWith(prefix))found=o;});return found;
+}
+
 /** Geometry is authored at one scale. Static parts are merged by material after assembly. */
-export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null) {
+export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null, mining:T.Group|null=null) {
   const root=new T.Group(), materials=new Map<string,T.MeshStandardMaterial>(), geometries=new Set<T.BufferGeometry>();
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
@@ -114,6 +118,15 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     });
     return plates;
   }
+  function animateHoist(hoist:T.Object3D,cable:T.Object3D,amplitude:number,period:number) {
+    const rest=hoist.position.y,anchor=cable.userData.anchor_z,sling=hoist.userData.sling_height;
+    if(!Number.isFinite(anchor)||!Number.isFinite(sling)||anchor<=rest+amplitude+sling)throw new Error('Invalid hoist cable dimensions');
+    animated.push(t=>{
+      hoist.position.y=rest+Math.sin(t*Math.PI*2/period)*amplitude;
+      // Keep both ends attached while the winch winds the rope in and out.
+      const bottom=hoist.position.y+sling;cable.scale.y=anchor-bottom;cable.position.y=(anchor+bottom)/2;
+    });
+  }
   function conveyorShop(parent:T.Object3D) {
     if(!conveyor)throw new Error('Conveyor model must load before assembly');
     const tier=townTier(counts.conveyor_sushi),building=group(parent,0,.03,.65,true),asset=cloneBuilding(conveyor);
@@ -145,7 +158,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     if(!auto)throw new Error('Auto sushi model must load before assembly');
     const tier=townTier(counts.auto_sushi_machine),building=group(parent,0,.03,.48,true),asset=cloneBuilding(auto);
     building.scale.setScalar(.80);building.add(asset);
-    const find=(prefix:string)=>{let found:T.Object3D|undefined;asset.traverse(o=>{if(!found&&o.name.startsWith(prefix))found=o;});return found;};
+    const find=(prefix:string)=>namedPart(asset,prefix);
     const prototype=find('Auto_Plate');if(!prototype)throw new Error('Auto sushi plate prototype missing');
     const count=3+tier,plates=plateBatches(prototype,building,count,'Auto_Dishes'),matrix=new T.Matrix4(),lane=new T.Path();
     lane.moveTo(-.98,.56);lane.lineTo(.98,.56);lane.absarc(.98,.95,.39,-Math.PI/2,Math.PI/2,false);
@@ -180,16 +193,12 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     if(!plant)throw new Error('Marine plant model must load before assembly');
     const building=group(parent,0,.03,.60,true),asset=cloneBuilding(plant);
     building.scale.setScalar(.80);building.add(asset);
-    const find=(prefix:string)=>{let found:T.Object3D|undefined;asset.traverse(o=>{if(!found&&o.name.startsWith(prefix))found=o;});return found;};
+    const find=(prefix:string)=>namedPart(asset,prefix);
     const hoist=find('Plant_Hoist'),cable=find('Plant_Cable'),valve=find('Plant_Valve'),beacon=find('Plant_Beacon');
     if(!hoist||!cable||!valve)throw new Error('Marine plant rig missing');
-    const restHeight=hoist.position.y,anchor=cable.userData.anchor_z,sling=hoist.userData.sling_height;
-    if(!Number.isFinite(anchor)||!Number.isFinite(sling))throw new Error('Marine plant cable dimensions missing');
+    animateHoist(hoist,cable,.30,12);
     const valveRest=valve.quaternion.clone(),beaconRest=beacon?.quaternion.clone(),turn=new T.Quaternion(),axis=new T.Vector3(0,1,0);
     animated.push(t=>{
-      hoist.position.y=restHeight+Math.sin(t*Math.PI/6)*.30;
-      // Scale and position the rope from its two endpoints so it never detaches.
-      const bottom=hoist.position.y+sling;cable.scale.y=anchor-bottom;cable.position.y=(anchor+bottom)/2;
       valve.quaternion.copy(valveRest).multiply(turn.setFromAxisAngle(axis,Math.sin(t*.4)*.32));
       if(beacon&&beaconRest)beacon.quaternion.copy(beaconRest).multiply(turn.setFromAxisAngle(axis,t*.7));
     });
@@ -210,13 +219,14 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       box(parent,colors.roof,0,2.15,-1.3,2.1,.18,.15);
     }
   }
-  function crane(parent:T.Object3D) {
-    box(parent,colors.wood,0,.2,0,4,.3,3);
-    for(const x of [-1.4,1.4]) {box(parent,'#ad7d43',x,2,-.6,.24,3.6,.24);for(let y=.7;y<3.7;y+=.6)box(parent,colors.ink,x,y,-.6,.25,.15,.25);}
-    box(parent,'#ad7d43',0,3.7,-.6,3.5,.24,.3);
-    const load=group(parent,0,2.5,.2,true);box(load,colors.wood,0,0,0,.7,.5,.7);box(load,colors.gold,0,0,.36,.07,.5,.04);
-    const cable=box(parent,colors.ink,0,3,-.05,.035,1.4,.035);cable.userData.dynamic=true;
-    animated.push(t=>{load.position.y=1.5+Math.sin(t*.6)*.65;cable.scale.y=3.6-load.position.y;cable.position.y=(3.6+load.position.y)/2;});
+  function oceanMining(parent:T.Object3D) {
+    if(!mining)throw new Error('Ocean mining model must load before assembly');
+    const building=group(parent,0,.03,.55,true),asset=cloneBuilding(mining);
+    building.scale.setScalar(.80);building.add(asset);
+    const hoist=namedPart(asset,'Mining_Hoist'),cable=namedPart(asset,'Mining_Cable'),drill=namedPart(asset,'Mining_Drill'),crown=namedPart(asset,'Mining_Crown');
+    if(!hoist||!cable||!drill)throw new Error('Ocean mining rig missing');
+    animateHoist(hoist,cable,.22,10);
+    animated.push(t=>{drill.rotation.y=t*.70;if(crown)crown.rotation.y=-t*.24;});
   }
   function energy(parent:T.Object3D,index:number) {
     cyl(parent,colors.stone,0,.2,0,2,.4);cyl(parent,colors.roof,0,.52,0,1.65,.25);
@@ -245,15 +255,15 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
-  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,crane,energy,energy,factory,energy];
+  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,oceanMining,energy,energy,factory,energy];
   FACILITIES.forEach((f,index)=>{
     const [x,z]=position(index), owned=counts[f.id];
     if(owned===0 && index!==0) {tree(x,z);return;}
     const building=group(root,x,0,z);
-    if(index>3)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
+    if(index>4)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
     builders[index](building,index);
     targets.push({key:f.id,point:new T.Vector3(x,1,z)});
-    if(index>3)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
+    if(index>4)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
   });
   const [shopX,shopZ]=position(0);
   if(town.bench) {

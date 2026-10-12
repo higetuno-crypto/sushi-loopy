@@ -1,0 +1,61 @@
+{
+  "base": "http://127.0.0.1:5180/",
+  "results": [
+    {
+      "level": 1,
+      "threshold": 1,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv1.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv1.glb"
+      ]
+    },
+    {
+      "level": 2,
+      "threshold": 5,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv1.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv2.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv2.glb"
+      ]
+    },
+    {
+      "level": 3,
+      "threshold": 10,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv2.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv3.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv3.glb"
+      ]
+    },
+    {
+      "level": 4,
+      "threshold": 25,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv3.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv4.glb",
+        "http://127.0.0.1:5180/assets/models/05-sushi-ocean-mining/ocean-mining-lv4.glb"
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -42,7 +42,7 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   function focus(next:TownView,instant=false) {
     view=next;
     if(next==='all'){destination.set(0,0,-.8);targetSpan=36;}
-    else {const index=FACILITIES.findIndex(f=>f.id===next),p=model?.position(index),port=next==='marine_food_plant';if(p){destination.set(p[0],port?1.6:.8,p[1]+.8);targetSpan=port?10.5:9.5;}}
+    else {const index=FACILITIES.findIndex(f=>f.id===next),p=model?.position(index),tall=next==='marine_food_plant'||next==='sushi_ocean_mining';if(p){destination.set(p[0],tall?1.6:.8,p[1]+.8);targetSpan=tall?10.5:9.5;}}
     if(instant||motionOff()){target.copy(destination);span=targetSpan;}dirty=true;
   }
   function resize(){const rect=host.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);renderer.setSize(width,height);dirty=true;}
@@ -103,17 +103,18 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   resize();frame=requestAnimationFrame(render);
   return {
     update(counts:GameState['facilityCounts'],town:Town) {
-      const request=++revision,level=Math.max(1,townTier(counts.craftsman)),conveyorLevel=townTier(counts.conveyor_sushi),autoLevel=townTier(counts.auto_sushi_machine),plantLevel=townTier(counts.marine_food_plant);
+      const request=++revision,level=Math.max(1,townTier(counts.craftsman)),conveyorLevel=townTier(counts.conveyor_sushi),autoLevel=townTier(counts.auto_sushi_machine),plantLevel=townTier(counts.marine_food_plant),miningLevel=townTier(counts.sushi_ocean_mining);
       host.dataset.craftsmanStatus='loading';
       host.dataset.conveyorStatus=conveyorLevel?'loading':'absent';
       host.dataset.autoStatus=autoLevel?'loading':'absent';
       host.dataset.plantStatus=plantLevel?'loading':'absent';
-      void Promise.all([loadModel(`01-craftsman/craftsman-lv${level}`),conveyorLevel?loadModel(`02-conveyor-sushi/conveyor-lv${conveyorLevel}`):null,autoLevel?loadModel(`03-auto-sushi-machine/auto-sushi-lv${autoLevel}`):null,plantLevel?loadModel(`04-marine-food-plant/marine-plant-lv${plantLevel}`):null]).then(([asset,conveyor,auto,plant])=>{
+      host.dataset.miningStatus=miningLevel?'loading':'absent';
+      void Promise.all([loadModel(`01-craftsman/craftsman-lv${level}`),conveyorLevel?loadModel(`02-conveyor-sushi/conveyor-lv${conveyorLevel}`):null,autoLevel?loadModel(`03-auto-sushi-machine/auto-sushi-lv${autoLevel}`):null,plantLevel?loadModel(`04-marine-food-plant/marine-plant-lv${plantLevel}`):null,miningLevel?loadModel(`05-sushi-ocean-mining/ocean-mining-lv${miningLevel}`):null]).then(([asset,conveyor,auto,plant,mining])=>{
         if(disposed||request!==revision)return;
         const hadModel=!!model;
         const hadDelivery=!!model?.delivery;
         const truckRotation=model?.delivery?.truck.quaternion.clone();
-        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor,auto,plant);scene.add(model.root);
+        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor,auto,plant,mining);scene.add(model.root);
         if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
         route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
         if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
@@ -125,7 +126,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
         host.dataset.conveyorLevel=String(conveyorLevel);host.dataset.conveyorStatus=conveyorLevel?'ready':'absent';
         host.dataset.autoLevel=String(autoLevel);host.dataset.autoStatus=autoLevel?'ready':'absent';
         host.dataset.plantLevel=String(plantLevel);host.dataset.plantStatus=plantLevel?'ready':'absent';
-      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';host.dataset.conveyorStatus='error';host.dataset.autoStatus='error';host.dataset.plantStatus='error';onLost();}});
+        host.dataset.miningLevel=String(miningLevel);host.dataset.miningStatus=miningLevel?'ready':'absent';
+      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';host.dataset.conveyorStatus='error';host.dataset.autoStatus='error';host.dataset.plantStatus='error';host.dataset.miningStatus='error';onLost();}});
     },
     focus,
     pause(value:boolean){frozen=value;dirty=true;},
