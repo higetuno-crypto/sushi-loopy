@@ -1,0 +1,50 @@
+[
+  {
+    "level": 1,
+    "uniqueTris": 3084,
+    "visibleTris": 3432,
+    "editableMeshes": 13,
+    "materials": 9,
+    "meshNodes": 5,
+    "primitives": 18,
+    "bytes": 187360,
+    "blendBytes": 560722,
+    "textures": 0
+  },
+  {
+    "level": 2,
+    "uniqueTris": 4592,
+    "visibleTris": 5056,
+    "editableMeshes": 20,
+    "materials": 9,
+    "meshNodes": 8,
+    "primitives": 24,
+    "bytes": 270900,
+    "blendBytes": 653087,
+    "textures": 0
+  },
+  {
+    "level": 3,
+    "uniqueTris": 6276,
+    "visibleTris": 6856,
+    "editableMeshes": 25,
+    "materials": 9,
+    "meshNodes": 8,
+    "primitives": 26,
+    "bytes": 359908,
+    "blendBytes": 736037,
+    "textures": 0
+  },
+  {
+    "level": 4,
+    "uniqueTris": 7916,
+    "visibleTris": 8612,
+    "editableMeshes": 33,
+    "materials": 9,
+    "meshNodes": 11,
+    "primitives": 29,
+    "bytes": 450496,
+    "blendBytes": 837155,
+    "textures": 0
+  }
+]

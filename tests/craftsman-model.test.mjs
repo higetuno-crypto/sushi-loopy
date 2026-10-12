@@ -90,3 +90,50 @@ test('conveyor levels fit all plots and the instanced dishes follow a closed, co
   }
   craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
 });
+
+test('auto sushi levels fit every plot and keep articulated robots, dishes and crown connected',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,3084],[2,5,4592],[3,10,6276],[4,25,7916]]) {
+    const auto=await load(`public/assets/models/03-auto-sushi-machine/auto-sushi-lv${level}.glb`),source=[];
+    auto.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    let disposed=false;for(const o of source)for(const r of [o.geometry,o.material])r.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='auto_sushi_machine'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[2],town.plots[slot]]=[slot,2];
+      const model=buildTown(counts,town,craftsman,1,null,auto);
+      const imported=model.root.getObjectByName(`Auto_L${level}`);assert.ok(imported,'the authored machine replaces the placeholder');
+      const asset=imported.parent,[x,z]=PLOTS[slot],bounds=new Box3().setFromObject(asset);
+      assert.ok(bounds.min.x>=x-2.4&&bounds.max.x<=x+2.4);assert.ok(bounds.min.z>=z-1.8&&bounds.max.z<=z+3.25);
+      assert.ok(Math.abs(bounds.min.y-.03)<.001);
+      const find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      assert.equal(find('Auto_Plate').visible,false);
+      const shoulder=find('Robot_L_Shoulder'),elbow=find('Robot_L_Elbow'),wrist=find('Robot_L_Wrist');
+      assert.equal(elbow.parent,shoulder);assert.equal(wrist.parent,elbow);
+      assert.equal(!!find('Robot_R_Shoulder'),level>=2);
+      const plates=[];model.root.traverse(o=>{if(o instanceof InstancedMesh&&o.name==='Auto_Dishes')plates.push(o);});
+      assert.equal(plates.length,3);assert.ok(plates.every(p=>p.count===3+level));
+      const crown=asset.getObjectByName('Crown_Gear');assert.equal(!!crown,level===4);
+      model.tick(0,0);const rotation=shoulder.quaternion.clone(),dishes=plates[0].instanceMatrix.array.slice(),gear=crown?.quaternion.clone();
+      model.tick(.75,.05);assert.ok(shoulder.quaternion.angleTo(rotation)>.01);assert.notDeepEqual(plates[0].instanceMatrix.array,dishes);
+      if(crown)assert.ok(crown.quaternion.angleTo(gear)>.01);
+      if(slot===2)for(let t=0;t<14;t+=.25) {
+        model.tick(t,.25);model.root.updateMatrixWorld(true);
+        const gripper=new Box3().setFromObject(wrist);assert.ok(gripper.min.y>.03+1.15*.80,'gripper stays clear of the belt');
+        assert.ok(Math.abs(wrist.getWorldPosition(new Vector3()).z-(z+.48+.53*.80))<.001,'arm joints share a working plane');
+        const m=new Matrix4(),point=new Vector3();
+        for(let i=0;i<plates[0].count;i++) {
+          plates[0].getMatrixAt(i,m);point.setFromMatrixPosition(m);
+          const dx=Math.max(0,Math.abs(point.x)-.98),dz=point.z-.95;
+          assert.ok(Math.abs(Math.hypot(dx,dz)-.39)<.001,'every dish stays on its capsule belt');
+          assert.ok(Math.abs(point.y-1.145)<.001);
+        }
+      }
+      model.tick(14,0);assert.deepEqual(plates[0].instanceMatrix.array,dishes,'dish motion wraps without a jump');
+      model.dispose();assert.equal(disposed,false);
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});

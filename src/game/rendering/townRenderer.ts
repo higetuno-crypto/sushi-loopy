@@ -103,15 +103,16 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   resize();frame=requestAnimationFrame(render);
   return {
     update(counts:GameState['facilityCounts'],town:Town) {
-      const request=++revision,level=Math.max(1,townTier(counts.craftsman)),conveyorLevel=townTier(counts.conveyor_sushi);
+      const request=++revision,level=Math.max(1,townTier(counts.craftsman)),conveyorLevel=townTier(counts.conveyor_sushi),autoLevel=townTier(counts.auto_sushi_machine);
       host.dataset.craftsmanStatus='loading';
       host.dataset.conveyorStatus=conveyorLevel?'loading':'absent';
-      void Promise.all([loadModel(`01-craftsman/craftsman-lv${level}`),conveyorLevel?loadModel(`02-conveyor-sushi/conveyor-lv${conveyorLevel}`):null]).then(([asset,conveyor])=>{
+      host.dataset.autoStatus=autoLevel?'loading':'absent';
+      void Promise.all([loadModel(`01-craftsman/craftsman-lv${level}`),conveyorLevel?loadModel(`02-conveyor-sushi/conveyor-lv${conveyorLevel}`):null,autoLevel?loadModel(`03-auto-sushi-machine/auto-sushi-lv${autoLevel}`):null]).then(([asset,conveyor,auto])=>{
         if(disposed||request!==revision)return;
         const hadModel=!!model;
         const hadDelivery=!!model?.delivery;
         const truckRotation=model?.delivery?.truck.quaternion.clone();
-        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor);scene.add(model.root);
+        if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor,auto);scene.add(model.root);
         if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
         route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
         if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
@@ -121,7 +122,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
         focus(view,!hadModel);dirty=true;
         host.dataset.craftsmanLevel=String(level);host.dataset.craftsmanStatus='ready';
         host.dataset.conveyorLevel=String(conveyorLevel);host.dataset.conveyorStatus=conveyorLevel?'ready':'absent';
-      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';host.dataset.conveyorStatus='error';onLost();}});
+        host.dataset.autoLevel=String(autoLevel);host.dataset.autoStatus=autoLevel?'ready':'absent';
+      }).catch(()=>{if(!disposed&&request===revision){host.dataset.craftsmanStatus='error';host.dataset.conveyorStatus='error';host.dataset.autoStatus='error';onLost();}});
     },
     focus,
     pause(value:boolean){frozen=value;dirty=true;},

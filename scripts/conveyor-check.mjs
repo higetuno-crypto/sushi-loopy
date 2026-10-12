@@ -3,7 +3,10 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const {chromium,webkit}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'C:/Users/higes/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base=process.env.SUSHI_TEST_URL||'http://127.0.0.1:5180/';
-const output=process.env.SUSHI_ARTIFACT_DIR||'artifacts/conveyor-models/chrome';
+const target=process.env.SUSHI_TEST_FACILITY||'conveyor_sushi';
+assert.ok(['conveyor_sushi','auto_sushi_machine'].includes(target));
+const facility=target==='auto_sushi_machine'?{id:target,name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'}:{id:target,name:'回転寿司オープン',folder:'02-conveyor-sushi',file:'conveyor',status:'conveyor',output:'conveyor-models'};
+const output=process.env.SUSHI_ARTIFACT_DIR||`artifacts/${facility.output}/chrome`;
 await mkdir(output,{recursive:true});
 const browser=await(process.env.SUSHI_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.SUSHI_ENGINE==='webkit'?{}:{channel:'chrome'})});
 const ids=['craftsman','conveyor_sushi','auto_sushi_machine','marine_food_plant','sushi_ocean_mining','fusion_sushi_converter','luna_sea','freshness_freezer','global_freshness_sync'];
@@ -11,7 +14,7 @@ const errors=[],results=[];
 try {
   for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
     const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
-    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map(id=>[id,id==='craftsman'?25:id==='conveyor_sushi'?count-1:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
+    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map(id=>[id,id==='craftsman'?25:id===facility.id?count-1:target==='auto_sushi_machine'&&id==='conveyor_sushi'?10:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
     if(level===1)await context.addInitScript(()=>{
       const Native=window.IntersectionObserver,observers=new Map();
@@ -24,16 +27,16 @@ try {
     });
     const page=await context.newPage(),requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
-    page.on('request',r=>{if(r.url().includes('/02-conveyor-sushi/'))requests.push(r.url());});
+    page.on('request',r=>{if(r.url().includes('/'+facility.folder+'/'))requests.push(r.url());});
     await page.goto(base);
     await page.locator('.town-viewport[data-craftsman-status=ready]').waitFor();
     if(level===1)assert.deepEqual(requests,[],'unowned facility does not download four models');
-    await page.getByRole('button',{name:'回転寿司オープンを購入',exact:true}).click();
-    const scene=page.locator(`.town-viewport[data-conveyor-level="${level}"][data-conveyor-status=ready]`);
+    await page.getByRole('button',{name:facility.name+'を購入',exact:true}).click();
+    const scene=page.locator(`.town-viewport[data-${facility.status}-level="${level}"][data-${facility.status}-status=ready]`);
     await scene.waitFor();await scene.scrollIntoViewIfNeeded();await page.waitForTimeout(1200);
-    assert.equal(await scene.getAttribute('data-view'),'conveyor_sushi');
-    assert.equal(await page.locator('[data-facility=conveyor_sushi] .facility-owned').innerText(),`× ${count}`);
-    assert.ok(requests.some(url=>url.includes(`conveyor-lv${level}.glb`)));
+    assert.equal(await scene.getAttribute('data-view'),facility.id);
+    assert.equal(await page.locator(`[data-facility=${facility.id}] .facility-owned`).innerText(),`× ${count}`);
+    assert.ok(requests.some(url=>url.includes(`${facility.file}-lv${level}.glb`)));
     const before=await scene.screenshot({path:`${output}/lv${level}-scene.png`});
     const time=Number(await scene.getAttribute('data-time'));await page.waitForTimeout(1000);
     assert.ok(Number(await scene.getAttribute('data-time'))>time);assert.ok(!before.equals(await scene.screenshot()),'the operating facility changes visually');
@@ -53,13 +56,13 @@ try {
     await page.getByRole('button',{name:'記録と設定を閉じる',exact:true}).click();
     await scene.scrollIntoViewIfNeeded();await page.waitForTimeout(250);
     const stopped=await scene.screenshot({path:`${output}/lv${level}-leaf.png`});await page.waitForTimeout(400);
-    assert.ok(stopped.equals(await scene.screenshot()),'plates and the roof carousel respect motion stop');
+    assert.ok(stopped.equals(await scene.screenshot()),'all facility motion respects motion stop');
     await page.waitForTimeout(5100);await page.reload();
-    await page.locator(`.town-viewport[data-conveyor-level="${level}"][data-conveyor-status=ready]`).waitFor();
+    await page.locator(`.town-viewport[data-${facility.status}-level="${level}"][data-${facility.status}-status=ready]`).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('sushi-loopy.save')).game.town.color),'leaf');
     if(level===4) {
       await page.getByRole('button',{name:'模様替え',exact:true}).click();
-      await page.locator('.town-move-list').getByRole('button',{name:'回転寿司オープン',exact:false}).click();
+      await page.locator('.town-move-list').getByRole('button',{name:facility.name,exact:false}).click();
       await page.locator('.town-plot-picker').getByRole('button',{name:'職人さん',exact:true}).click();
       await page.getByRole('button',{name:'配置を元に戻す ↶',exact:true}).click();
       await page.getByRole('button',{name:'写真モードを開く',exact:true}).click();

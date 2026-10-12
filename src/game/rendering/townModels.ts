@@ -9,7 +9,7 @@ const cloth = {vermillion:'#b95643',indigo:'#426575',leaf:'#758354'};
 const colors = {sand:'#e5d9b7',stone:'#b2bcb0',cream:'#f2e6ce',wood:'#78523c',timber:'#b4885a',roof:'#36575c',red:'#bb5f46',blue:'#64b9c0',ink:'#2f4141',leaf:'#6f966b',gold:'#d6ac60'};
 
 /** Geometry is authored at one scale. Static parts are merged by material after assembly. */
-export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null) {
+export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null) {
   const root=new T.Group(), materials=new Map<string,T.MeshStandardMaterial>(), geometries=new Set<T.BufferGeometry>();
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
@@ -104,21 +104,25 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       animated.push(t=>{const phase=(t*1.26)%3;plate.visible=phase>1.15;plate.position.z=mainZ+(phase<2?.78+(phase-1.15)*.3:1.03);});
     }
   }
+  function plateBatches(prototype:T.Object3D,parent:T.Object3D,count:number,name:string) {
+    prototype.visible=false;
+    const plates:T.InstancedMesh[]=[];
+    prototype.traverse(o=>{
+      if(!(o instanceof T.Mesh))return;
+      const batch=new T.InstancedMesh(o.geometry,o.material,count);batch.name=name;batch.castShadow=true;batch.receiveShadow=true;
+      batch.instanceMatrix.setUsage(T.DynamicDrawUsage);batch.frustumCulled=false;parent.add(batch);plates.push(batch);
+    });
+    return plates;
+  }
   function conveyorShop(parent:T.Object3D) {
     if(!conveyor)throw new Error('Conveyor model must load before assembly');
     const tier=townTier(counts.conveyor_sushi),building=group(parent,0,.03,.65,true),asset=cloneBuilding(conveyor);
     building.scale.setScalar(.82);building.add(asset);
     const prototype=asset.children.find(o=>o.name.startsWith('Conveyor_Plate'));
     if(!prototype)throw new Error('Conveyor plate prototype missing');
-    prototype.visible=false;
     // One draw per plate material, regardless of how many dishes circle the counter.
-    const plates:T.InstancedMesh[]=[],count=5+tier,matrix=new T.Matrix4();
+    const count=5+tier,plates=plateBatches(prototype,building,count,'Conveyor_Dishes'),matrix=new T.Matrix4();
     const lane=new T.EllipseCurve(0,.93,1.66,.63,0,Math.PI*2,false,0),point=new T.Vector2(),tangent=new T.Vector2();
-    prototype.traverse(o=>{
-      if(!(o instanceof T.Mesh))return;
-      const batch=new T.InstancedMesh(o.geometry,o.material,count);batch.name='Conveyor_Dishes';batch.castShadow=true;batch.receiveShadow=true;
-      batch.instanceMatrix.setUsage(T.DynamicDrawUsage);batch.frustumCulled=false;building.add(batch);plates.push(batch);
-    });
     const crown=asset.getObjectByName('Crown_Carousel');
     animated.push(t=>{
       for(let i=0;i<count;i++) {
@@ -137,17 +141,45 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       const guest=person(building,x,2.23);guest.p.position.y=.42;guest.p.scale.setScalar(.85);guest.p.rotation.y=Math.PI;
     }
   }
+  function autoFactory(parent:T.Object3D) {
+    if(!auto)throw new Error('Auto sushi model must load before assembly');
+    const tier=townTier(counts.auto_sushi_machine),building=group(parent,0,.03,.48,true),asset=cloneBuilding(auto);
+    building.scale.setScalar(.80);building.add(asset);
+    const find=(prefix:string)=>{let found:T.Object3D|undefined;asset.traverse(o=>{if(!found&&o.name.startsWith(prefix))found=o;});return found;};
+    const prototype=find('Auto_Plate');if(!prototype)throw new Error('Auto sushi plate prototype missing');
+    const count=3+tier,plates=plateBatches(prototype,building,count,'Auto_Dishes'),matrix=new T.Matrix4(),lane=new T.Path();
+    lane.moveTo(-.98,.56);lane.lineTo(.98,.56);lane.absarc(.98,.95,.39,-Math.PI/2,Math.PI/2,false);
+    lane.lineTo(-.98,1.34);lane.absarc(-.98,.95,.39,Math.PI/2,Math.PI*1.5,false);
+    const point=new T.Vector2(),tangent=new T.Vector2();
+    animated.push(t=>{
+      for(let i=0;i<count;i++) {
+        const progress=(t/14+i/count)%1;lane.getPointAt(progress,point);lane.getTangentAt(progress,tangent);
+        matrix.makeRotationY(-Math.atan2(tangent.y,tangent.x));matrix.setPosition(point.x,1.145,point.y);
+        for(const batch of plates)batch.setMatrixAt(i,matrix);
+      }
+      for(const batch of plates)batch.instanceMatrix.needsUpdate=true;
+    });
+    for(const [side,sign] of [['L',-1],['R',1]] as const) {
+      const shoulder=find(`Robot_${side}_Shoulder`),elbow=find(`Robot_${side}_Elbow`),wrist=find(`Robot_${side}_Wrist`);
+      if(!shoulder||!elbow||!wrist)continue;
+      const rest=[shoulder.rotation.z,elbow.rotation.z,wrist.rotation.z];
+      animated.push(t=>{
+        const phase=t*1.4+(sign===1?Math.PI:0),reach=sign*Math.sin(phase)*.09,press=sign*Math.sin(phase+.7)*.14;
+        shoulder.rotation.z=rest[0]+reach;elbow.rotation.z=rest[1]+press;
+        // The wrist compensates both hinges, keeping the gripper vertical and attached.
+        wrist.rotation.z=rest[2]-reach-press;
+      });
+    }
+    for(const name of ['Crown_Gear','Fan_Left','Fan_Right']) {
+      const rotor=asset.getObjectByName(name);if(!rotor)continue;
+      const rest=rotor.quaternion.clone(),turn=new T.Quaternion(),axis=new T.Vector3(0,1,0);
+      animated.push(t=>rotor.quaternion.copy(rest).multiply(turn.setFromAxisAngle(axis,t*(name==='Crown_Gear'?.16:.7))));
+    }
+  }
   function factory(parent:T.Object3D,index:number) {
     box(parent,colors.cream,0,.8,-.25,3.6,1.5,2.4);box(parent,colors.roof,0,1.6,-.25,3.9,.18,2.7);
     for(const x of [-1.2,0,1.2]) {box(parent,colors.roof,x,.9,1.0,.74,.73,.08);box(parent,'#8fc5c1',x,.94,1.05,.57,.49,.02);}
     box(parent,colors.red,-1.35,1.55,1.2,.55,.24,.07);
-    if(index===2) {
-      box(parent,colors.wood,0,.6,1.65,2.4,.18,.6);
-      const arm=group(parent,0,1.85,.1,true);cyl(arm,colors.gold,0,0,0,.25,.2);box(arm,colors.roof,0,.45,0,.24,.9,.25);
-      const elbow=group(arm,0,.9,0,true);box(elbow,colors.gold,0,0,.5,.2,.2,1.1);box(elbow,colors.ink,0,-.22,1,.18,.5,.18);
-      animated.push(t=>{arm.rotation.y=Math.sin(t*.8)*.65;elbow.rotation.x=.1+Math.max(0,Math.sin(t*1.6))*.4;});
-      sushi(parent,.8,.74,1.65);
-    }
     if(index===3 || index===7) {
       for(const x of [-.95,.95]) {
         cyl(parent,colors.roof,x,2,-.15,.72,.18);cyl(parent,index===7?'#acd6d5':'#68b7bf',x,2.6,-.15,.62,1.2);
@@ -195,15 +227,15 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
-  const builders=[craftsmanShop,conveyorShop,factory,factory,crane,energy,energy,factory,energy];
+  const builders=[craftsmanShop,conveyorShop,autoFactory,factory,crane,energy,energy,factory,energy];
   FACILITIES.forEach((f,index)=>{
     const [x,z]=position(index), owned=counts[f.id];
     if(owned===0 && index!==0) {tree(x,z);return;}
     const building=group(root,x,0,z);
-    if(index>1)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
+    if(index>2)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
     builders[index](building,index);
     targets.push({key:f.id,point:new T.Vector3(x,1,z)});
-    if(index>1)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
+    if(index>2)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
   });
   const [shopX,shopZ]=position(0);
   if(town.bench) {
