@@ -14,6 +14,45 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
+test('marine plant levels fit every plot, keep the hoist attached and preserve delivery routing',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,2644],[2,5,3588],[3,10,5144],[4,25,6392]]) {
+    const plant=await load(`public/assets/models/04-marine-food-plant/marine-plant-lv${level}.glb`),source=[];
+    plant.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    let disposed=false;for(const o of source)for(const resource of [o.geometry,o.material])resource.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='marine_food_plant'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[3],town.plots[slot]]=[slot,3];
+      const model=buildTown(counts,town,craftsman,1,null,null,plant);
+      const imported=model.root.getObjectByName(`Plant_L${level}`);assert.ok(imported,'the authored marine plant replaces the placeholder');
+      const asset=imported.parent,[x,z]=PLOTS[slot],bounds=new Box3().setFromObject(asset);
+      assert.ok(bounds.min.x>=x-2.4&&bounds.max.x<=x+2.4);assert.ok(bounds.min.z>=z-1.8&&bounds.max.z<=z+3.25);
+      assert.ok(Math.abs(bounds.min.y-.03)<.001,'foundation is on the plot');
+      const find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const hoist=find('Plant_Hoist'),cable=find('Plant_Cable'),valve=find('Plant_Valve'),beacon=find('Plant_Beacon');
+      assert.ok(hoist&&cable&&valve);assert.equal(!!beacon,level===4);
+      model.tick(0,0);const first=hoist.position.y,rotation=valve.quaternion.clone(),light=beacon?.quaternion.clone();
+      for(let t=0;t<=12;t+=.25) {
+        model.tick(t,.25);model.root.updateMatrixWorld(true);
+        assert.ok(Math.abs(cable.position.y+cable.scale.y/2-cable.userData.anchor_z)<1e-5,'rope remains fixed to the boom');
+        assert.ok(Math.abs(cable.position.y-cable.scale.y/2-hoist.position.y-hoist.userData.sling_height)<1e-5,'rope remains attached to the load');
+        assert.ok(cable.scale.y>.1);assert.ok(hoist.position.y>.5,'cargo clears the dock and waiting crates');
+        assert.equal(cable.position.x,hoist.position.x);assert.equal(cable.position.z,hoist.position.z);
+        const swept=new Box3().setFromObject(asset);assert.ok(swept.min.x>=x-2.4&&swept.max.x<=x+2.4&&swept.min.z>=z-1.8&&swept.max.z<=z+3.25);
+      }
+      assert.ok(Math.abs(hoist.position.y-first)<1e-8,'hoist cycle closes without a jump');
+      model.tick(3,0);assert.ok(Math.abs(hoist.position.y-first)>.1);assert.ok(valve.quaternion.angleTo(rotation)>.01);
+      if(beacon)assert.ok(beacon.quaternion.angleTo(light)>.01);
+      assert.equal(model.delivery.source,town.plots[3]);assert.equal(model.delivery.destination,town.plots[0]);
+      model.dispose();assert.equal(disposed,false,'rebuilding cannot dispose the cached GLB');
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
+
 test('approved craftsman levels fit every plot, retain their geometry, and own their recolored resources',async()=>{
   for(const [level,count,tris] of [[1,1,3520],[2,5,4352],[3,10,5376],[4,25,7006]]) {
     assert.equal(townTier(count),level);

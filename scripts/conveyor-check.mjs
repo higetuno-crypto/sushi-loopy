@@ -4,8 +4,13 @@ import assert from 'node:assert/strict';
 const {chromium,webkit}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'C:/Users/higes/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base=process.env.SUSHI_TEST_URL||'http://127.0.0.1:5180/';
 const target=process.env.SUSHI_TEST_FACILITY||'conveyor_sushi';
-assert.ok(['conveyor_sushi','auto_sushi_machine'].includes(target));
-const facility=target==='auto_sushi_machine'?{id:target,name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'}:{id:target,name:'回転寿司オープン',folder:'02-conveyor-sushi',file:'conveyor',status:'conveyor',output:'conveyor-models'};
+const facilities={
+  conveyor_sushi:{name:'回転寿司オープン',folder:'02-conveyor-sushi',file:'conveyor',status:'conveyor',output:'conveyor-models'},
+  auto_sushi_machine:{name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'},
+  marine_food_plant:{name:'海洋食材プラント',folder:'04-marine-food-plant',file:'marine-plant',status:'plant',output:'marine-models'},
+};
+assert.ok(Object.hasOwn(facilities,target));
+const facility={id:target,...facilities[target]};
 const output=process.env.SUSHI_ARTIFACT_DIR||`artifacts/${facility.output}/chrome`;
 await mkdir(output,{recursive:true});
 const browser=await(process.env.SUSHI_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.SUSHI_ENGINE==='webkit'?{}:{channel:'chrome'})});
@@ -14,7 +19,7 @@ const errors=[],results=[];
 try {
   for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
     const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
-    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map(id=>[id,id==='craftsman'?25:id===facility.id?count-1:target==='auto_sushi_machine'&&id==='conveyor_sushi'?10:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
+    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map((id,index)=>[id,id==='craftsman'?25:id===facility.id?count-1:index<ids.indexOf(target)?10:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
     if(level===1)await context.addInitScript(()=>{
       const Native=window.IntersectionObserver,observers=new Map();
@@ -40,6 +45,12 @@ try {
     const before=await scene.screenshot({path:`${output}/lv${level}-scene.png`});
     const time=Number(await scene.getAttribute('data-time'));await page.waitForTimeout(1000);
     assert.ok(Number(await scene.getAttribute('data-time'))>time);assert.ok(!before.equals(await scene.screenshot()),'the operating facility changes visually');
+    if(target==='marine_food_plant') {
+      const position=await scene.getAttribute('data-truck-position');
+      await page.waitForTimeout(1200);
+      assert.ok(['loading','outbound','unloading','returning'].includes(await scene.getAttribute('data-delivery')));
+      assert.notEqual(await scene.getAttribute('data-truck-position'),position,'buying the plant still dispatches a delivery truck');
+    }
     if(level===1) {
       const time=Number(await scene.getAttribute('data-time'));
       await page.evaluate(()=>window.testVisibilityBatch());await page.waitForTimeout(400);
