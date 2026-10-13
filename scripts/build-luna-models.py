@@ -79,7 +79,7 @@ if not scene:
         p.box((x,-r-.008,shoulder*.40+h/2),(.065,.055,h),6)
     if LEVEL>=3:
         for x in (-.76,.76):
-            p.loft(x,0,[(.30,.20,.20),(.50,.23,.23),(shoulder*.67,.23,.23),(shoulder*.67+.24,.11,.11),(shoulder*.67+.37,.018,.018)],5 if LEVEL==3 else 2,12)
+            p.loft(x,0,[(.30,.20,.20),(.50,.23,.23),(shoulder*.67,.23,.23),(shoulder*.67+.24,.11,.11),(shoulder*.67+.37,.018,.018)],5,12)
             for z in (.65,shoulder*.60): p.ring((x,0,z),(.25,.25),(.21,.21),.085,4 if LEVEL==4 else 3,12)
             beam(p,(x,0,.96),(math.copysign(r-.03,x),0,.96),.14,.14,3)
     p.finish()
@@ -156,14 +156,11 @@ if not scene:
         for x in (1.23,1.42,1.61): p.box((x,-1.42,1.063),(.028,.27,.015),2)
     p.finish()
     if LEVEL==4:
-        p=part('Golden_Lunar_Gateway')
-        p.box((.31,1.58,2.73),(.18,.18,4.86),1)
-        beam(p,(tx,ty,5.17),(.31,1.58,5.17),.16,.18,4)
-        beam(p,(tx,ty,4.51),(-1.2,1.19,5.12),.10,.10,4)
-        beam(p,(.31,1.58,4.51),(-.48,1.37,5.12),.10,.10,4)
-        pipe(p,(-1.03,1.30,5.23),(-1.03,1.30,5.66),.065,4)
-        crescent(p,-.80,1.30,5.90,.50,4)
-        for x,y in ((tx,ty),(.31,1.58)): lamp(p,x,y,5.25)
+        p=part('Golden_Moon_Column')
+        p.box((.31,1.58,2.75),(.22,.22,4.90),1)
+        # The crescent rests directly on the right column; the overhead braces are gone.
+        crescent(p,.31,1.58,5.68,.50,4)
+        lamp(p,tx,ty,5.25)
         # Gold strips add readable relief to the booster-era gantry.
         for z in (1.10,2.10,3.10,4.10): p.box((.31,1.477,z),(.22,.035,.15),4)
         p.finish()

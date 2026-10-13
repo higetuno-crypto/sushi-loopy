@@ -17,7 +17,7 @@ after(()=>{delete globalThis.document;});
 test('luna levels stay grounded on every plot and complete a bounded flight without disappearing',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
-  for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,7292]]) {
+  for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,7156]]) {
     const luna=await load(`public/assets/models/07-luna-sea/luna-lv${level}.glb`),source=[];
     luna.traverse(o=>{if(o instanceof Mesh)source.push(o);});
     assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
