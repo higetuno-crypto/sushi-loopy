@@ -14,6 +14,41 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
+test('luna levels stay grounded on every plot and complete a bounded flight without disappearing',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,7292]]) {
+    const luna=await load(`public/assets/models/07-luna-sea/luna-lv${level}.glb`),source=[];
+    luna.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    assert.ok(source.every(o=>!o.material.transparent&&!o.material.map));
+    let disposed=false;for(const o of source)for(const r of [o.geometry,o.material])r.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='luna_sea'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[6],town.plots[slot]]=[slot,6];
+      const model=buildTown(counts,town,craftsman,1,null,null,null,null,null,luna);
+      const imported=model.root.getObjectByName(`Luna_L${level}`);assert.ok(imported,'the authored lunar base replaces the generic rocket');
+      const asset=imported.parent,[x,z]=PLOTS[slot],find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const rocket=find('Luna_Rocket'),exhaust=find('Luna_Exhaust'),dish=find('Luna_Dish');assert.ok(rocket&&exhaust&&dish);
+      model.tick(0,0);const rest=rocket.position.y,azimuth=dish.quaternion.clone();assert.equal(exhaust.visible,false);
+      assert.equal(exhaust.parent,rocket,'the flame belongs to the rocket');
+      for(let t=0;t<=48;t+=.125) {
+        model.tick(t,.125);const b=new Box3().setFromObject(asset);
+        assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,'the flight stays inside its plot');
+        assert.ok(Math.abs(b.min.y-.03)<.001,'foundation remains grounded');
+        assert.equal(rocket.visible,true);assert.ok(rocket.position.y>=rest&&rocket.position.y<=rest+.751);
+        if(exhaust.visible)assert.ok(rocket.position.y+exhaust.position.y-exhaust.scale.y>=rocket.userData.pad_top+.039,'plume never penetrates the launch pad');
+      }
+      assert.equal(rocket.position.y,rest);model.tick(20,0);assert.ok(rocket.position.y-rest>.74&&exhaust.visible);
+      assert.ok(dish.quaternion.angleTo(azimuth)>.1);
+      for(const boundary of [18,22,24]) {model.tick(boundary-.001,0);const before=rocket.position.y;model.tick(boundary+.001,0);assert.ok(Math.abs(before-rocket.position.y)<.001,'cycle joins without teleporting');}
+      assert.ok(model.targets.some(t=>t.key==='luna_sea'));model.dispose();assert.equal(disposed,false);
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
+
 test('fusion levels keep sushi inside the chamber and the sun ring clear on every plot',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');

@@ -9,6 +9,7 @@ const facilities={
   auto_sushi_machine:{name:'寿司自動握り器',folder:'03-auto-sushi-machine',file:'auto-sushi',status:'auto',output:'auto-models'},
   marine_food_plant:{name:'海洋食材プラント',folder:'04-marine-food-plant',file:'marine-plant',status:'plant',output:'marine-models'},
   fusion_sushi_converter:{name:'寿司融合発電',folder:'06-fusion-sushi-converter',file:'fusion',status:'fusion',output:'fusion-models'},
+  luna_sea:{name:'LUNA_SEA',folder:'07-luna-sea',file:'luna',status:'luna',output:'luna-models'},
   sushi_ocean_mining:{name:'SUSHI海洋採掘',folder:'05-sushi-ocean-mining',file:'ocean-mining',status:'mining',output:'mining-models'},
 };
 assert.ok(Object.hasOwn(facilities,target));
@@ -18,10 +19,11 @@ await mkdir(output,{recursive:true});
 const browser=await(process.env.SUSHI_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.SUSHI_ENGINE==='webkit'?{}:{channel:'chrome'})});
 const ids=['craftsman','conveyor_sushi','auto_sushi_machine','marine_food_plant','sushi_ocean_mining','fusion_sushi_converter','luna_sea','freshness_freezer','global_freshness_sync'];
 const errors=[],results=[];
+const funds=target==='luna_sea'?1e9:1e8;
 try {
   for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
     const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
-    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map((id,index)=>[id,id==='craftsman'?25:id===facility.id?count-1:index<ids.indexOf(target)?10:0])),sushi:1e8,totalSushiEarned:1e8,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
+    const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map((id,index)=>[id,id==='craftsman'?25:id===facility.id?count-1:index<ids.indexOf(target)?10:0])),sushi:funds,totalSushiEarned:funds,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
     if(level===1)await context.addInitScript(()=>{
       const Native=window.IntersectionObserver,observers=new Map();
@@ -65,6 +67,10 @@ try {
       assert.equal(await page.locator('.mobile-tap-dock').count(),0,'the dock uses the latest visibility notification too');
     }
     await page.screenshot({path:`${output}/lv${level}-mobile.png`});
+    if(target==='luna_sea'&&level===4) {
+      await page.waitForFunction(()=>{const p=Number(document.querySelector('.town-viewport').dataset.time)%24;return p>19.8&&p<20.2;},null,{timeout:40000});
+      await scene.screenshot({path:`${output}/lv4-flight.png`});
+    }
     if(level===4){await page.setViewportSize({width:320,height:568});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`${output}/lv4-320.png`});await page.setViewportSize({width:390,height:844});}
     await page.getByRole('button',{name:'模様替え',exact:true}).click();
     await page.getByRole('group',{name:'のれんの色',exact:true}).getByRole('button',{name:'若葉',exact:true}).click();
