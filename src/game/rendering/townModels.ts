@@ -18,7 +18,8 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
   const reactions=new Map<string,number>();
-  let time=0;
+  let time=0,flightTime=0;
+  const lunarFlight={rocket:null as T.Object3D|null,altitude:0,phase:'idle'};
   const material=(color:string)=>{
     if(!materials.has(color)) materials.set(color,new T.MeshStandardMaterial({color,roughness:.88,metalness:0}));
     return materials.get(color)!;
@@ -247,10 +248,21 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     const rocket=namedPart(asset,'Luna_Rocket'),exhaust=namedPart(asset,'Luna_Exhaust'),dish=namedPart(asset,'Luna_Dish');
     if(!rocket||!exhaust||!dish)throw new Error('Lunar base rig missing');
     const rest=rocket.position.y,nozzle=exhaust.position.y;
+    lunarFlight.rocket=rocket;
     animated.push(t=>{
-      const phase=t%24,lift=phase>=18&&phase<22?.75*Math.sin((phase-18)*Math.PI/4)**2:0;
+      const p=flightTime%32;
+      let lift=0,thrust=0,phase='idle';
+      if(p>=6&&p<7){phase='ignition';thrust=p-6;}
+      else if(p>=7&&p<12){const u=(p-7)/5;phase='ascent';lift=11*u*u-4*u*u*u;thrust=1;}
+      else if(p>=12&&p<16){const u=p-12;phase='coast';lift=7+2*u-.5*u*u;thrust=Math.max(0,1-u*4);}
+      else if(p>=16&&p<20){const u=(p-16)/4;phase='return';lift=7-8*u+2.5*u*u;thrust=.75*Math.min(1,(p-16)*2);}
+      else if(p>=20&&p<24){const u=(p-20)/4;phase='landing';lift=1.5*(1-u)**2;thrust=(.35+.4*(1-u))*Math.min(1,(24-p)*2);}
+      // Position and velocity match at each phase; the same vehicle comes back to its pad.
       rocket.position.y=rest+lift;
-      exhaust.visible=lift>.005;exhaust.scale.y=Math.min(.62,nozzle+lift-.04);
+      exhaust.visible=thrust>.02;
+      exhaust.scale.y=Math.min(nozzle+lift-.04,(.25+1.55*thrust)*(1+.035*Math.sin(t*20)));
+      exhaust.scale.x=exhaust.scale.z=.75+.25*thrust;
+      lunarFlight.altitude=lift*.80;lunarFlight.phase=phase;
       dish.rotation.y=t*.35;
     });
   }
@@ -329,8 +341,8 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     const merged=mergeGeometries(parts);parts.forEach(g=>g.dispose());
     if(merged){geometries.add(merged);const mesh=new T.Mesh(merged,mat);mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);}
   }
-  return {root,targets,delivery,position,
-    tick(t:number,dt:number){time=t;animated.forEach(update=>update(t,dt));},
+  return {root,targets,delivery,position,lunarFlight,
+    tick(t:number,dt:number,lunaTime=t){time=t;flightTime=lunaTime;animated.forEach(update=>update(t,dt));},
     react(key:string){reactions.set(key,time);},
     dispose(){
       const textures=new Set<T.Texture>(),mats=new Set<T.Material>();

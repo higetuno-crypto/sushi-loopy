@@ -22,7 +22,8 @@ const errors=[],results=[];
 const funds=target==='luna_sea'?1e9:1e8;
 try {
   for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
-    const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
+    const recordFlight=target==='luna_sea'&&level===4;
+    const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference',...(recordFlight?{recordVideo:{dir:output,size:{width:390,height:844}}}:{})});
     const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map((id,index)=>[id,id==='craftsman'?25:id===facility.id?count-1:index<ids.indexOf(target)?10:0])),sushi:funds,totalSushiEarned:funds,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
     if(level===1)await context.addInitScript(()=>{
@@ -34,7 +35,7 @@ try {
       };
       window.testVisibilityBatch=()=>{for(const [observer,target] of observers)observer.callback([false,true].map((isIntersecting,time)=>({target,isIntersecting,time})),observer);};
     });
-    const page=await context.newPage(),requests=[];
+    const page=await context.newPage(),requests=[],videoStart=Date.now();let flight=null;
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
     page.on('request',r=>{if(r.url().includes('/'+facility.folder+'/'))requests.push(r.url());});
     await page.goto(base);
@@ -68,8 +69,14 @@ try {
     }
     await page.screenshot({path:`${output}/lv${level}-mobile.png`});
     if(target==='luna_sea'&&level===4) {
-      await page.waitForFunction(()=>{const p=Number(document.querySelector('.town-viewport').dataset.time)%24;return p>19.8&&p<20.2;},null,{timeout:40000});
-      await scene.screenshot({path:`${output}/lv4-flight.png`});
+      const start=(Date.now()-videoStart)/1000,bounds=await scene.boundingBox(),stages=[];
+      for(const [phase,time] of [['ascent',10],['coast',14],['return',18],['landing',23],['idle',25]]) {
+        await page.waitForFunction(({phase,time})=>{const d=document.querySelector('.town-viewport').dataset,p=Number(d.lunaTime)%32;return d.lunaPhase===phase&&p>=time&&p<time+.3;},{phase,time},{timeout:50000});
+        const altitude=Number(await scene.getAttribute('data-luna-altitude'));
+        await scene.screenshot({path:`${output}/lv4-${phase}.png`});stages.push({phase,altitude});
+      }
+      assert.ok(stages[1].altitude>7&&stages[2].altitude<stages[1].altitude&&stages[4].altitude===0);
+      flight={start,duration:(Date.now()-videoStart)/1000-start,bounds,stages};
     }
     if(level===4){await page.setViewportSize({width:320,height:568});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`${output}/lv4-320.png`});await page.setViewportSize({width:390,height:844});}
     await page.getByRole('button',{name:'模様替え',exact:true}).click();
@@ -93,8 +100,9 @@ try {
       await page.getByRole('button',{name:'この景色を撮る',exact:true}).click();
       await page.getByRole('link',{name:'写真を保存 ↓',exact:true}).waitFor();
     }
-    results.push({level,threshold:count,purchase:true,motion:true,motionStop:true,color:true,reload:true,requests});
+    results.push({level,threshold:count,purchase:true,motion:true,motionStop:true,color:true,reload:true,requests,...(flight?{flight}:{})});
     await context.close();
+    if(recordFlight)await page.video().saveAs(`${output}/lv4-flight.webm`);
   }
   assert.deepEqual(errors,[]);await writeFile(`${output}/checks.json`,JSON.stringify({base,results,errors},null,2));console.log({results,errors});
 } finally {await browser.close();}

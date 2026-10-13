@@ -33,9 +33,9 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
     if(!assets.has(path))assets.set(path,loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/${path}.glb`).then(gltf=>gltf.scene).catch(error=>{assets.delete(path);throw error;}));
     return assets.get(path)!;
   }
-  let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0;
+  let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0,lunaStart=0;
   let view:TownView='craftsman',span=13,targetSpan=13;
-  const target=new T.Vector3(0,0,5),destination=target.clone(),offset=new T.Vector3(10,14,20).normalize().multiplyScalar(80);
+  const target=new T.Vector3(0,0,5),destination=target.clone(),framing=target.clone(),offset=new T.Vector3(10,14,20).normalize().multiplyScalar(80);
   const pointer=new T.Vector3(),truckDirection=new T.Quaternion(),up=new T.Vector3(0,1,0);
   let startPointer:{x:number;y:number}|null=null;
   function motionOff(){const setting=document.documentElement.dataset.motion;return setting==='off'||(setting!=='on'&&matchMedia('(prefers-reduced-motion: reduce)').matches);}
@@ -57,12 +57,14 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
     const paused=frozen||motionOff();
     if(visible&&!document.hidden&&model&&(!paused||dirty)) {
       if(!paused)elapsed+=dt;
+      model.tick(elapsed,dt,elapsed-lunaStart);
+      const flightHeight=view==='luna_sea'?model.lunarFlight.altitude:0;
+      framing.copy(destination);framing.y+=flightHeight*.45;
       const ease=paused?1:1-Math.exp(-dt*5);
-      target.lerp(destination,ease);span+=(targetSpan-span)*ease;
+      target.lerp(framing,ease);span+=(targetSpan+flightHeight*.60-span)*ease;
       const aspect=width/height,halfHeight=span*.5/Math.min(1,aspect);
       camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;camera.updateProjectionMatrix();
       camera.position.copy(target).add(offset);camera.lookAt(target);
-      model.tick(elapsed,dt);
       if(model.delivery&&route) {
         const cycle=(elapsed-deliveryStart)%24;
         const outbound=cycle<12,progress=outbound?smooth(Math.max(0,Math.min(1,(cycle-2)/8))):1-smooth(Math.max(0,Math.min(1,(cycle-14)/8)));
@@ -81,6 +83,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
       renderer.render(scene,camera);dirty=false;
       host.dataset.ready='true';host.dataset.drawCalls=String(renderer.info.render.calls);host.dataset.triangles=String(renderer.info.render.triangles);
       host.dataset.time=elapsed.toFixed(3);host.dataset.view=view;
+      host.dataset.lunaPhase=model.lunarFlight.phase;host.dataset.lunaAltitude=model.lunarFlight.altitude.toFixed(3);
+      host.dataset.lunaTime=(elapsed-lunaStart).toFixed(3);
     }
     frame=requestAnimationFrame(render);
   }
@@ -115,11 +119,13 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
         if(disposed||request!==revision)return;
         const hadModel=!!model;
         const hadDelivery=!!model?.delivery;
+        const hadLuna=!!model?.lunarFlight.rocket;
         const truckRotation=model?.delivery?.truck.quaternion.clone();
         if(model){scene.remove(model.root);model.dispose();}model=buildTown(counts,town,asset,level,conveyor,auto,plant,mining,fusion,luna);scene.add(model.root);
         if(truckRotation&&model.delivery)model.delivery.truck.quaternion.copy(truckRotation);
         route=model.delivery?deliveryRoute(model.delivery.source,model.delivery.destination):null;
         if(!hadDelivery&&model.delivery)deliveryStart=elapsed;
+        if(!hadLuna&&model.lunarFlight.rocket)lunaStart=elapsed;
         const evening=town.weather==='evening',rain=town.weather==='rain';
         scene.background=new T.Color(evening?'#9cb5b2':rain?'#9cb6b7':'#97c7c5');seaMaterial.color.set(evening?'#648a91':rain?'#6b929a':'#479fac');
         sun.color.set(evening?'#ffc18d':'#ffe0b4');sun.intensity=rain?1.2:evening?2.3:2.6;ambient.intensity=evening?1.3:rain?1.8:1.9;

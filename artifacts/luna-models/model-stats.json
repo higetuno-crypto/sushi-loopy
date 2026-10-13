@@ -40,15 +40,15 @@
   },
   {
     "level": 4,
-    "triangles": 7156,
+    "triangles": 8780,
     "editableMeshes": 14,
     "materials": 9,
     "meshNodes": 4,
     "primitives": 19,
-    "bytes": 356984,
-    "blendBytes": 684411,
+    "bytes": 452620,
+    "blendBytes": 741627,
     "textures": 0,
     "topologyClean": true,
-    "closedComponents": 220
+    "closedComponents": 222
   }
 ]

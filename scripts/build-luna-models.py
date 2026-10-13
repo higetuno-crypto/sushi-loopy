@@ -157,13 +157,20 @@ if not scene:
     p.finish()
     if LEVEL==4:
         p=part('Golden_Moon_Column')
-        p.box((.31,1.58,2.75),(.22,.22,4.90),1)
-        # The crescent rests directly on the right column; the overhead braces are gone.
-        crescent(p,.31,1.58,5.68,.50,4)
+        # A tapered pier clears the fuel tanks; the moon is a thick, enamel-faced sculpture.
+        p.box((.68,1.8,.38),(.65,.65,.16),0)
+        p.loft(.68,1.8,[(.46,.27,.27),(.78,.24,.24),(4.7,.15,.15),(5.03,.19,.19)],1,8)
+        for z,r in ((.63,.29),(3.1,.19),(4.91,.25)): p.cylinder((.68,1.8,z),r,.13,4,8)
+        for inset,y,depth,color in ((0,1.8,.16,4),(.06,1.637,.012,2),(.06,1.963,.012,2)):
+            r=.64; d=r*.55; outer=r-inset; inner=r+inset
+            ix=(d*d+outer*outer-inner*inner)/(2*d); h=math.sqrt(outer*outer-ix*ix)
+            a=math.atan2(h,ix); b=math.atan2(h,ix-d)
+            outline=[(outer*math.cos(t),outer*math.sin(t)) for t in [a+(math.tau-2*a)*i/16 for i in range(17)]]
+            outline += [(d+inner*math.cos(t),inner*math.sin(t)) for t in [math.tau-b-(math.tau-2*b)*i/14 for i in range(1,14)]]
+            n=len(outline); p.poly([(.68+x,yy,5.64+z) for yy in (y-depth,y+depth) for x,z in outline],
+                [tuple(range(n-1,-1,-1)),tuple(range(n,2*n))]+[(i,(i+1)%n,(i+1)%n+n,i+n) for i in range(n)],color)
         lamp(p,tx,ty,5.25)
-        # Gold strips add readable relief to the booster-era gantry.
-        for z in (1.10,2.10,3.10,4.10): p.box((.31,1.477,z),(.22,.035,.15),4)
-        p.finish()
+        p.finish(.025)
     world=bpy.data.worlds.new(f'Luna{LEVEL}_World'); world.use_nodes=True
     bg=next(n for n in world.node_tree.nodes if n.type=='BACKGROUND'); bg.inputs['Color'].default_value=(.7,.77,.84,1); bg.inputs['Strength'].default_value=.4; scene.world=world
     data=bpy.data.cameras.new('Luna_Preview_Camera'); data.type=next(i.identifier for i in data.bl_rna.properties['type'].enum_items if i.identifier=='ORTHO'); data.ortho_scale=11.2

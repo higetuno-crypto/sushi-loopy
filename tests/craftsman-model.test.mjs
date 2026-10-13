@@ -14,10 +14,10 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
-test('luna levels stay grounded on every plot and complete a bounded flight without disappearing',async()=>{
+test('luna levels launch above the tower, coast, reignite and land continuously on every plot',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
-  for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,7156]]) {
+  for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,8780]]) {
     const luna=await load(`public/assets/models/07-luna-sea/luna-lv${level}.glb`),source=[];
     luna.traverse(o=>{if(o instanceof Mesh)source.push(o);});
     assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
@@ -32,16 +32,28 @@ test('luna levels stay grounded on every plot and complete a bounded flight with
       const rocket=find('Luna_Rocket'),exhaust=find('Luna_Exhaust'),dish=find('Luna_Dish');assert.ok(rocket&&exhaust&&dish);
       model.tick(0,0);const rest=rocket.position.y,azimuth=dish.quaternion.clone();assert.equal(exhaust.visible,false);
       assert.equal(exhaust.parent,rocket,'the flame belongs to the rocket');
-      for(let t=0;t<=48;t+=.125) {
+      let previous=rest;
+      for(let t=0;t<=64;t+=.125) {
         model.tick(t,.125);const b=new Box3().setFromObject(asset);
         assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,'the flight stays inside its plot');
         assert.ok(Math.abs(b.min.y-.03)<.001,'foundation remains grounded');
-        assert.equal(rocket.visible,true);assert.ok(rocket.position.y>=rest&&rocket.position.y<=rest+.751);
+        assert.equal(rocket.visible,true);assert.ok(rocket.position.y>=rest&&rocket.position.y<=rest+9.001);
+        assert.ok(Math.abs(rocket.position.y-previous)<.27,'the ascent and return never teleport');previous=rocket.position.y;
         if(exhaust.visible)assert.ok(rocket.position.y+exhaust.position.y-exhaust.scale.y>=rocket.userData.pad_top+.039,'plume never penetrates the launch pad');
       }
-      assert.equal(rocket.position.y,rest);model.tick(20,0);assert.ok(rocket.position.y-rest>.74&&exhaust.visible);
+      assert.equal(rocket.position.y,rest);
+      model.tick(11.5,0);assert.ok(rocket.position.y-rest>5&&exhaust.visible,'the vehicle actually leaves the tower');
+      model.tick(14,0);assert.ok(rocket.position.y-rest>8.9&&!exhaust.visible,'engine cuts off during the high coast');
+      model.tick(18,0);assert.ok(rocket.position.y-rest>3&&rocket.position.y-rest<4&&exhaust.visible,'engine relights on the return');
+      model.tick(23.5,0);assert.ok(rocket.position.y-rest<.03&&exhaust.visible,'landing burn slows the last approach');
+      model.tick(24,0);assert.equal(rocket.position.y,rest);assert.equal(exhaust.visible,false);
       assert.ok(dish.quaternion.angleTo(azimuth)>.1);
-      for(const boundary of [18,22,24]) {model.tick(boundary-.001,0);const before=rocket.position.y;model.tick(boundary+.001,0);assert.ok(Math.abs(before-rocket.position.y)<.001,'cycle joins without teleporting');}
+      for(const boundary of [6,7,12,16,20,24,32]) {
+        model.tick(boundary-.001,0);const before=rocket.position.y;model.tick(boundary,0);const center=rocket.position.y;model.tick(boundary+.001,0);const after=rocket.position.y;
+        assert.ok(Math.abs(after-before)<.005,'flight segments are position-continuous');
+        assert.ok(Math.abs((center-before)-(after-center))<.00001,'flight segments are velocity-continuous');
+      }
+      model.tick(105,0,14);assert.ok(rocket.position.y-rest>8.9,'a new purchase uses its own uninterrupted flight clock');
       assert.ok(model.targets.some(t=>t.key==='luna_sea'));model.dispose();assert.equal(disposed,false);
     }
     for(const o of source){o.geometry.dispose();o.material.dispose();}
