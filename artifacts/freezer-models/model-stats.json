@@ -1,0 +1,50 @@
+[
+  {
+    "level": 1,
+    "tris": 3558,
+    "objects": 13,
+    "materials": 9,
+    "meshNodes": 4,
+    "primitives": 14,
+    "glbBytes": 188552,
+    "blendBytes": 567720,
+    "components": 102,
+    "nonManifold": 0
+  },
+  {
+    "level": 2,
+    "tris": 4698,
+    "objects": 15,
+    "materials": 9,
+    "meshNodes": 4,
+    "primitives": 14,
+    "glbBytes": 240492,
+    "blendBytes": 615250,
+    "components": 129,
+    "nonManifold": 0
+  },
+  {
+    "level": 3,
+    "tris": 6430,
+    "objects": 18,
+    "materials": 9,
+    "meshNodes": 4,
+    "primitives": 14,
+    "glbBytes": 317808,
+    "blendBytes": 688074,
+    "components": 164,
+    "nonManifold": 0
+  },
+  {
+    "level": 4,
+    "tris": 7666,
+    "objects": 21,
+    "materials": 9,
+    "meshNodes": 5,
+    "primitives": 15,
+    "glbBytes": 374284,
+    "blendBytes": 742809,
+    "components": 187,
+    "nonManifold": 0
+  }
+]

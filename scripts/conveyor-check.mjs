@@ -10,6 +10,7 @@ const facilities={
   marine_food_plant:{name:'海洋食材プラント',folder:'04-marine-food-plant',file:'marine-plant',status:'plant',output:'marine-models'},
   fusion_sushi_converter:{name:'寿司融合発電',folder:'06-fusion-sushi-converter',file:'fusion',status:'fusion',output:'fusion-models'},
   luna_sea:{name:'LUNA_SEA',folder:'07-luna-sea',file:'luna',status:'luna',output:'luna-models'},
+  freshness_freezer:{name:'鮮度凍結装置',folder:'08-freshness-freezer',file:'freezer',status:'freezer',output:'freezer-models'},
   sushi_ocean_mining:{name:'SUSHI海洋採掘',folder:'05-sushi-ocean-mining',file:'ocean-mining',status:'mining',output:'mining-models'},
 };
 assert.ok(Object.hasOwn(facilities,target));
@@ -19,7 +20,7 @@ await mkdir(output,{recursive:true});
 const browser=await(process.env.SUSHI_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.SUSHI_ENGINE==='webkit'?{}:{channel:'chrome'})});
 const ids=['craftsman','conveyor_sushi','auto_sushi_machine','marine_food_plant','sushi_ocean_mining','fusion_sushi_converter','luna_sea','freshness_freezer','global_freshness_sync'];
 const errors=[],results=[];
-const funds=target==='luna_sea'?1e9:1e8;
+const funds=target==='freshness_freezer'?1e10:target==='luna_sea'?1e9:1e8;
 try {
   for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
     const recordFlight=target==='luna_sea'&&level===4;

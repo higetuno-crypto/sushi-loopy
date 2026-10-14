@@ -13,7 +13,7 @@ function namedPart(asset:T.Object3D,prefix:string) {
 }
 
 /** Geometry is authored at one scale. Static parts are merged by material after assembly. */
-export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null, mining:T.Group|null=null, fusion:T.Group|null=null, luna:T.Group|null=null) {
+export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null, mining:T.Group|null=null, fusion:T.Group|null=null, luna:T.Group|null=null, freezer:T.Group|null=null) {
   const root=new T.Group(), materials=new Map<string,T.MeshStandardMaterial>(), geometries=new Set<T.BufferGeometry>();
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
@@ -204,21 +204,20 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       if(beacon&&beaconRest)beacon.quaternion.copy(beaconRest).multiply(turn.setFromAxisAngle(axis,t*.7));
     });
   }
-  function factory(parent:T.Object3D,index:number) {
-    box(parent,colors.cream,0,.8,-.25,3.6,1.5,2.4);box(parent,colors.roof,0,1.6,-.25,3.9,.18,2.7);
-    for(const x of [-1.2,0,1.2]) {box(parent,colors.roof,x,.9,1.0,.74,.73,.08);box(parent,'#8fc5c1',x,.94,1.05,.57,.49,.02);}
-    box(parent,colors.red,-1.35,1.55,1.2,.55,.24,.07);
-    if(index===7) {
-      for(const x of [-.95,.95]) {
-        cyl(parent,colors.roof,x,2,-.15,.72,.18);cyl(parent,index===7?'#acd6d5':'#68b7bf',x,2.6,-.15,.62,1.2);
-        for(const y of [2.12,3.12]) cyl(parent,'#e1ded0',x,y,-.15,.68,.09);
-        cyl(parent,colors.blue,x,3.18,-.15,.59,.025);
-        const float=group(parent,x,3.2,-.15,true);box(float,'#eae5cd',0,0,.15,.15,.06,.19);
-        animated.push(t=>{float.position.y=3.2+Math.sin(t*.9+x)*.025;float.rotation.y=t*.14;});
-        box(parent,colors.gold,x,2.2,.56,.13,.43,.13);
-      }
-      box(parent,colors.roof,0,2.15,-1.3,2.1,.18,.15);
-    }
+  function freshnessFreezer(parent:T.Object3D) {
+    if(!freezer)throw new Error('Freezer model must load before assembly');
+    const building=group(parent,0,.03,.50,true),asset=cloneBuilding(freezer);
+    building.scale.setScalar(.80);building.add(asset);
+    const fish=namedPart(asset,'Freezer_Fish'),tail=namedPart(asset,'Freezer_Tail'),fan=namedPart(asset,'Freezer_Fan'),crown=namedPart(asset,'Freezer_Crown');
+    if(!fish||!tail||!fan)throw new Error('Freezer rig missing');
+    const rest=fish.position.y,cold=new Set<T.MeshStandardMaterial>();
+    asset.traverse(o=>{if(o instanceof T.Mesh&&o.material instanceof T.MeshStandardMaterial&&o.material.name.includes('_Cold'))cold.add(o.material);});
+    animated.push(t=>{
+      fish.position.y=rest+Math.sin(t*.65)*.065;fish.rotation.y=Math.sin(t*.42)*.065;
+      tail.rotation.y=Math.sin(t*1.4)*.19;fan.rotation.y=t*.95;
+      if(crown)crown.rotation.z=t*.12;
+      cold.forEach(m=>{m.emissiveIntensity=.18+Math.sin(t*.8)*.04;});
+    });
   }
   function oceanMining(parent:T.Object3D) {
     if(!mining)throw new Error('Ocean mining model must load before assembly');
@@ -284,15 +283,15 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
-  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,oceanMining,fusionPlant,lunaBase,factory,energy];
+  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,oceanMining,fusionPlant,lunaBase,freshnessFreezer,energy];
   FACILITIES.forEach((f,index)=>{
     const [x,z]=position(index), owned=counts[f.id];
     if(owned===0 && index!==0) {tree(x,z);return;}
     const building=group(root,x,0,z);
-    if(index>6)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
-    builders[index](building,index);
+    if(index===8)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
+    builders[index](building);
     targets.push({key:f.id,point:new T.Vector3(x,1,z)});
-    if(index>6)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
+    if(index===8)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
   });
   const [shopX,shopZ]=position(0);
   if(town.bench) {

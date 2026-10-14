@@ -14,6 +14,48 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
+test('freezer levels keep the fish, tail, fans and ice crown inside their authored clearances on every plot',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
+  for(const [level,count,tris] of [[1,1,3558],[2,5,4698],[3,10,6430],[4,25,7666]]) {
+    const freezer=await load(`public/assets/models/08-freshness-freezer/freezer-lv${level}.glb`),source=[];
+    freezer.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.equal(source.reduce((n,o)=>n+o.geometry.index.count/3,0),tris);
+    assert.ok(source.every(o=>!o.material.transparent&&!o.material.map),'opaque materials keep the fish readable without glass sorting');
+    let disposed=false;for(const o of source)for(const resource of [o.geometry,o.material])resource.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='freshness_freezer'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[7],town.plots[slot]]=[slot,7];
+      const model=buildTown(counts,town,craftsman,1,null,null,null,null,null,null,freezer);
+      const imported=model.root.getObjectByName(`Freezer_L${level}`);assert.ok(imported,'the GLB replaces the generic freezer');
+      const asset=imported.parent,[x,z]=PLOTS[slot],find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const fish=find('Freezer_Fish'),tail=find('Freezer_Tail'),fan=find('Freezer_Fan'),crown=find('Freezer_Crown');
+      assert.ok(fish&&tail&&fan);assert.equal(tail.parent,fish);assert.equal(!!crown,level===4);
+      const cold=[];asset.traverse(o=>{if(o instanceof Mesh&&o.material.name.includes('_Cold'))cold.push(o.material);});assert.ok(cold.length);
+      model.tick(0,0);const rest=fish.position.y,rotation=tail.quaternion.clone(),fanStart=fan.quaternion.clone(),crownStart=crown?.quaternion.clone();
+      const point=new Vector3(),inverse=asset.matrixWorld.clone().invert();
+      for(let t=0;t<=60;t+=.5) {
+        model.tick(t,.5);model.root.updateMatrixWorld(true);const b=new Box3().setFromObject(asset);
+        assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,'moving parts stay inside the plot');
+        assert.ok(Math.abs(b.min.y-.03)<.001,'the imported foundation rests directly on the plot');
+        if(slot===7)fish.traverse(o=>{if(o instanceof Mesh){const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++) {
+          point.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld).applyMatrix4(inverse);
+          assert.ok(Math.hypot(point.x,point.z)<fish.userData.chamber_radius,'fish and tail clear the chamber walls');
+          assert.ok(point.y>fish.userData.floor+.36&&point.y<fish.userData.ceiling,'fish clears the floor crystals and compressor');
+        }}});
+        assert.ok(cold.every(m=>m.emissiveIntensity>=.14&&m.emissiveIntensity<=.22));
+      }
+      model.tick(2,0);assert.notEqual(fish.position.y,rest);assert.ok(tail.quaternion.angleTo(rotation)>.02);assert.ok(fan.quaternion.angleTo(fanStart)>.1);
+      fan.traverse(o=>{if(o instanceof Mesh){const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(Math.hypot(p.getX(i),p.getZ(i))<.34,'fan blades clear the stationary cowl');}});
+      if(crown)assert.ok(crown.quaternion.angleTo(crownStart)>.1);
+      if(crown)crown.traverse(o=>{if(o instanceof Mesh){const p=o.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(Math.hypot(p.getX(i),p.getY(i))<.47,'snowflake clears its golden frame at every angle');}});
+      model.dispose();assert.equal(disposed,false,'replacing a level preserves cached source resources');
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
+
 test('luna levels leave the town frame, coast, reignite and land continuously on every plot',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
