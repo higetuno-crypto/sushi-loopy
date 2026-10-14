@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { Box3, Mesh, InstancedMesh, Matrix4, Vector3 } from 'three';
+import { Box3, Mesh, InstancedMesh, Matrix4, OrthographicCamera, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createServer } from 'vite';
 const vite=await createServer({server:{middlewareMode:true,watch:null},appType:'custom',logLevel:'silent'});
@@ -14,7 +14,7 @@ const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
 
-test('luna levels launch above the tower, coast, reignite and land continuously on every plot',async()=>{
+test('luna levels leave the town frame, coast, reignite and land continuously on every plot',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
   const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');
   for(const [level,count,tris] of [[1,1,4420],[2,5,5312],[3,10,6856],[4,25,8780]]) {
@@ -37,23 +37,29 @@ test('luna levels launch above the tower, coast, reignite and land continuously 
         model.tick(t,.125);const b=new Box3().setFromObject(asset);
         assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,'the flight stays inside its plot');
         assert.ok(Math.abs(b.min.y-.03)<.001,'foundation remains grounded');
-        assert.equal(rocket.visible,true);assert.ok(rocket.position.y>=rest&&rocket.position.y<=rest+9.001);
-        assert.ok(Math.abs(rocket.position.y-previous)<.27,'the ascent and return never teleport');previous=rocket.position.y;
+        assert.equal(rocket.visible,true);assert.ok(rocket.position.y>=rest&&rocket.position.y<=rest+45.001);
+        assert.ok(Math.abs(rocket.position.y-previous)<1.35,'the ascent and return never teleport');previous=rocket.position.y;
         if(exhaust.visible)assert.ok(rocket.position.y+exhaust.position.y-exhaust.scale.y>=rocket.userData.pad_top+.039,'plume never penetrates the launch pad');
       }
       assert.equal(rocket.position.y,rest);
       model.tick(11.5,0);assert.ok(rocket.position.y-rest>5&&exhaust.visible,'the vehicle actually leaves the tower');
-      model.tick(14,0);assert.ok(rocket.position.y-rest>8.9&&!exhaust.visible,'engine cuts off during the high coast');
-      model.tick(18,0);assert.ok(rocket.position.y-rest>3&&rocket.position.y-rest<4&&exhaust.visible,'engine relights on the return');
-      model.tick(23.5,0);assert.ok(rocket.position.y-rest<.03&&exhaust.visible,'landing burn slows the last approach');
+      model.tick(14,0);assert.ok(rocket.position.y-rest>44.9&&!exhaust.visible,'engine cuts off during the high coast');
+      const camera=new OrthographicCamera(-18,18,18,-18,.1,250),target=new Vector3(0,0,-.8);
+      camera.position.copy(target).add(new Vector3(10,14,20).normalize().multiplyScalar(80));camera.lookAt(target);camera.updateMatrixWorld(true);
+      const airborne=new Box3().setFromObject(rocket);
+      for(const px of [airborne.min.x,airborne.max.x])for(const py of [airborne.min.y,airborne.max.y])for(const pz of [airborne.min.z,airborne.max.z]) {
+        assert.ok(new Vector3(px,py,pz).project(camera).y>1.1,'the entire rocket leaves even the full-town frame');
+      }
+      model.tick(18,0);assert.ok(rocket.position.y-rest>15&&rocket.position.y-rest<20&&exhaust.visible,'engine relights on the return');
+      model.tick(23.5,0);assert.ok(rocket.position.y-rest<.12&&exhaust.visible,'landing burn slows the last approach');
       model.tick(24,0);assert.equal(rocket.position.y,rest);assert.equal(exhaust.visible,false);
       assert.ok(dish.quaternion.angleTo(azimuth)>.1);
       for(const boundary of [6,7,12,16,20,24,32]) {
         model.tick(boundary-.001,0);const before=rocket.position.y;model.tick(boundary,0);const center=rocket.position.y;model.tick(boundary+.001,0);const after=rocket.position.y;
-        assert.ok(Math.abs(after-before)<.005,'flight segments are position-continuous');
-        assert.ok(Math.abs((center-before)-(after-center))<.00001,'flight segments are velocity-continuous');
+        assert.ok(Math.abs(after-before)<.025,'flight segments are position-continuous');
+        assert.ok(Math.abs((center-before)-(after-center))<.00005,'flight segments are velocity-continuous');
       }
-      model.tick(105,0,14);assert.ok(rocket.position.y-rest>8.9,'a new purchase uses its own uninterrupted flight clock');
+      model.tick(105,0,14);assert.ok(rocket.position.y-rest>44.9,'a new purchase uses its own uninterrupted flight clock');
       assert.ok(model.targets.some(t=>t.key==='luna_sea'));model.dispose();assert.equal(disposed,false);
     }
     for(const o of source){o.geometry.dispose();o.material.dispose();}

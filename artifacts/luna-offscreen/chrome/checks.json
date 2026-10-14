@@ -1,0 +1,93 @@
+{
+  "base": "http://127.0.0.1:5181/",
+  "results": [
+    {
+      "level": 1,
+      "threshold": 1,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv1.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv1.glb"
+      ]
+    },
+    {
+      "level": 2,
+      "threshold": 5,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv1.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv2.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv2.glb"
+      ]
+    },
+    {
+      "level": 3,
+      "threshold": 10,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv2.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv3.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv3.glb"
+      ]
+    },
+    {
+      "level": 4,
+      "threshold": 25,
+      "purchase": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv3.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv4.glb",
+        "http://127.0.0.1:5181/assets/models/07-luna-sea/luna-lv4.glb"
+      ],
+      "flight": {
+        "start": 4.571,
+        "duration": 22.479,
+        "bounds": {
+          "x": 15,
+          "y": 151,
+          "width": 360,
+          "height": 360
+        },
+        "stages": [
+          {
+            "phase": "ascent",
+            "altitude": 3.572
+          },
+          {
+            "phase": "coast",
+            "altitude": 36
+          },
+          {
+            "phase": "return",
+            "altitude": 6.574
+          },
+          {
+            "phase": "landing",
+            "altitude": 0.366
+          },
+          {
+            "phase": "idle",
+            "altitude": 0
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

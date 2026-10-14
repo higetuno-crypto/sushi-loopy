@@ -70,12 +70,12 @@ try {
     await page.screenshot({path:`${output}/lv${level}-mobile.png`});
     if(target==='luna_sea'&&level===4) {
       const start=(Date.now()-videoStart)/1000,bounds=await scene.boundingBox(),stages=[];
-      for(const [phase,time] of [['ascent',10],['coast',14],['return',18],['landing',23],['idle',25]]) {
+      for(const [phase,time] of [['ascent',8.5],['coast',14],['return',19.8],['landing',23],['idle',25]]) {
         await page.waitForFunction(({phase,time})=>{const d=document.querySelector('.town-viewport').dataset,p=Number(d.lunaTime)%32;return d.lunaPhase===phase&&p>=time&&p<time+.3;},{phase,time},{timeout:50000});
         const altitude=Number(await scene.getAttribute('data-luna-altitude'));
         await scene.screenshot({path:`${output}/lv4-${phase}.png`});stages.push({phase,altitude});
       }
-      assert.ok(stages[1].altitude>7&&stages[2].altitude<stages[1].altitude&&stages[4].altitude===0);
+      assert.ok(stages[1].altitude>35&&stages[2].altitude<stages[1].altitude&&stages[4].altitude===0);
       flight={start,duration:(Date.now()-videoStart)/1000-start,bounds,stages};
     }
     if(level===4){await page.setViewportSize({width:320,height:568});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`${output}/lv4-320.png`});await page.setViewportSize({width:390,height:844});}

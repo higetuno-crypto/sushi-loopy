@@ -35,7 +35,7 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
   }
   let width=1,height=1,elapsed=0,last=0,frame=0,visible=true,frozen=false,disposed=false,lost=false,dirty=true,deliveryStart=0,lunaStart=0;
   let view:TownView='craftsman',span=13,targetSpan=13;
-  const target=new T.Vector3(0,0,5),destination=target.clone(),framing=target.clone(),offset=new T.Vector3(10,14,20).normalize().multiplyScalar(80);
+  const target=new T.Vector3(0,0,5),destination=target.clone(),offset=new T.Vector3(10,14,20).normalize().multiplyScalar(80);
   const pointer=new T.Vector3(),truckDirection=new T.Quaternion(),up=new T.Vector3(0,1,0);
   let startPointer:{x:number;y:number}|null=null;
   function motionOff(){const setting=document.documentElement.dataset.motion;return setting==='off'||(setting!=='on'&&matchMedia('(prefers-reduced-motion: reduce)').matches);}
@@ -58,10 +58,8 @@ export function createTownRenderer(host:HTMLElement, onSelect:(key:string)=>void
     if(visible&&!document.hidden&&model&&(!paused||dirty)) {
       if(!paused)elapsed+=dt;
       model.tick(elapsed,dt,elapsed-lunaStart);
-      const flightHeight=view==='luna_sea'?model.lunarFlight.altitude:0;
-      framing.copy(destination);framing.y+=flightHeight*.45;
       const ease=paused?1:1-Math.exp(-dt*5);
-      target.lerp(framing,ease);span+=(targetSpan+flightHeight*.60-span)*ease;
+      target.lerp(destination,ease);span+=(targetSpan-span)*ease;
       const aspect=width/height,halfHeight=span*.5/Math.min(1,aspect);
       camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;camera.updateProjectionMatrix();
       camera.position.copy(target).add(offset);camera.lookAt(target);

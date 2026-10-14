@@ -257,6 +257,7 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       else if(p>=12&&p<16){const u=p-12;phase='coast';lift=7+2*u-.5*u*u;thrust=Math.max(0,1-u*4);}
       else if(p>=16&&p<20){const u=(p-16)/4;phase='return';lift=7-8*u+2.5*u*u;thrust=.75*Math.min(1,(p-16)*2);}
       else if(p>=20&&p<24){const u=(p-20)/4;phase='landing';lift=1.5*(1-u)**2;thrust=(.35+.4*(1-u))*Math.min(1,(24-p)*2);}
+      lift*=5; // Clear the top of the full-town view as well as the facility view.
       // Position and velocity match at each phase; the same vehicle comes back to its pad.
       rocket.position.y=rest+lift;
       exhaust.visible=thrust>.02;
