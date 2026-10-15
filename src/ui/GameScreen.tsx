@@ -75,7 +75,7 @@ function Customization({move,photo}:{move:(id:FacilityId)=>void;photo:()=>void})
 
 export function GameScreen() {
   const phase=useGameStore(s=>s.endingPhase), level=useGameStore(anomalyLevel), counts=useGameStore(s=>s.facilityCounts), town=useGameStore(s=>s.town);
-  const previous=useGameStore(s=>s.previousRun), previousTown=useGameStore(s=>s.previousTown);
+  const previous=useGameStore(s=>s.previousRun), previousTown=useGameStore(s=>s.previousTown), syncCount=useGameStore(s=>s.syncCount);
   const runKey=previous?`${previous.runPlayTimeMs}:${previous.totalClicks}:${previous.totalSushiEarned}`:'initial';
   const playing=phase==='playing';
   const [sheet,setSheet]=useState<'customize'|'settings'|'record'|null>(null);
@@ -119,7 +119,7 @@ export function GameScreen() {
     <div className="town-shell world-surface" inert={!playing}>
       <TownCounter openSettings={()=>setSheet('settings')}/>
       <div className="town-main-layout"><div className="town-counter-column"><section className="town-stage" aria-label="寿司の街">
-        <div ref={photoRoot} className="town-photo-root"><TownScene key={runKey} counts={counts} town={town} moving={moving} frozen={photo} paused={!playing} onMove={slot=>{if(moving){const index=FACILITIES.findIndex(f=>f.id===moving);setUndo({id:moving,slot:town.plots[index]});useGameStore.getState().moveFacility(moving,slot);setMoving(null);notify('配置を変更しました。');}}} onPlay={play}/></div>
+        <div ref={photoRoot} className="town-photo-root"><TownScene key={runKey} counts={counts} town={town} syncCount={syncCount} moving={moving} frozen={photo} paused={!playing} onMove={slot=>{if(moving){const index=FACILITIES.findIndex(f=>f.id===moving);setUndo({id:moving,slot:town.plots[index]});useGameStore.getState().moveFacility(moving,slot);setMoving(null);notify('配置を変更しました。');}}} onPlay={play}/></div>
         <div className="town-stage-heading"><span>海辺のお店</span><button aria-label="写真モードを開く" onClick={openPhoto}>▣ 写真</button></div>
         {message && <div key={message} className="town-message" role="status">{message}</div>}
         {moving ? <div className="town-move-hint"><strong>置きたい区画をタップ</strong><button onClick={()=>setMoving(null)}>やめる</button></div> : undo && <button className="town-undo" onClick={()=>{useGameStore.getState().moveFacility(undo.id,undo.slot);setUndo(null);notify('元の配置に戻しました。');}}>配置を元に戻す ↶</button>}
@@ -131,7 +131,7 @@ export function GameScreen() {
     {photo && <div className="town-photo-controls" data-preserve-ui><button onClick={()=>{setPhoto(false);setPhotoUrl('');}}>街に戻る</button><button onClick={takePhoto} disabled={photoBusy}>{photoBusy?'写真を現像中…':'この景色を撮る'}</button>{photoUrl && <a href={photoUrl} download="sushi-loopy-town.png">写真を保存 ↓</a>}{message && <small role="status">{message}</small>}</div>}
     <Sheet open={sheet==='customize'} name="customize" title="わたしの街にする" close={()=>setSheet(null)}>{sheet==='customize' && <Customization move={id=>{setMoving(id);setSheet(null);}} photo={openPhoto}/>}</Sheet>
     <Sheet open={sheet==='settings'} name="settings" title="記録と設定" close={()=>setSheet(null)}><SoundControl/><MotionControl/><p className="town-help">眺めは「お店・港・全景」で切り替え。「にぎる」は長押しでも。設備は下へスクロール。街と進行は自動保存されます。</p>{previous && <button className="town-primary" onClick={()=>setSheet('record')}>前回育てた街を見る</button>}<PreviousRunRecord/><SaveTools/><FacilityCheckpointTools/><details className="town-debug"><summary>検証用の操作</summary><DebugTools/></details><small className="town-version">Sushi Loopy · Town 2.0 · Save 6</small></Sheet>
-    <Sheet open={sheet==='record'} name="record" title="前回のスシルーピー" close={()=>setSheet(null)}>{previous && sheet==='record' && <><div className="town-record"><TownScene counts={previous.facilityCounts} town={previousTown??createTown()} frozen/></div><p className="town-record-caption">{previousTown?.name??'前回のお店'} · {formatNumber(previous.totalSushiEarned)} SUSHI を作った街</p></>}</Sheet>
+    <Sheet open={sheet==='record'} name="record" title="前回のスシルーピー" close={()=>setSheet(null)}>{previous && sheet==='record' && <><div className="town-record"><TownScene counts={previous.facilityCounts} town={previousTown??createTown()} syncCount={previous.syncCount} frozen/></div><p className="town-record-caption">{previousTown?.name??'前回のお店'} · {formatNumber(previous.totalSushiEarned)} SUSHI を作った街</p></>}</Sheet>
     <WorldDamage key={phase}/><Synchronization/>
     {playing && !photo && <><AchievementToast/>{!sheet && <MobileTapDock/>}</>}
   </main>;

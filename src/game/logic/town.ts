@@ -33,3 +33,5 @@ export function moveTownFacility(town: Town, id: FacilityId, slot: number): Town
   return { ...town, plots };
 }
 export const townTier = (count: number): number => count >= 25 ? 4 : count >= 10 ? 3 : count >= 5 ? 2 : count > 0 ? 1 : 0;
+// The final facility ends the run on purchase three; its four appearances follow synchronization.
+export const syncTownTier = (count: number, synced: number): number => count === 0 ? 0 : count >= 3 || synced >= 2 ? 4 : count >= 2 ? 3 : synced >= 1 ? 2 : 1;

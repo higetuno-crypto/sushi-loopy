@@ -13,7 +13,7 @@ function namedPart(asset:T.Object3D,prefix:string) {
 }
 
 /** Geometry is authored at one scale. Static parts are merged by material after assembly. */
-export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null, mining:T.Group|null=null, fusion:T.Group|null=null, luna:T.Group|null=null, freezer:T.Group|null=null) {
+export function buildTown(counts: GameState['facilityCounts'], town: Town, craftsman:T.Group, level:number, conveyor:T.Group|null=null, auto:T.Group|null=null, plant:T.Group|null=null, mining:T.Group|null=null, fusion:T.Group|null=null, luna:T.Group|null=null, freezer:T.Group|null=null, sync:T.Group|null=null) {
   const root=new T.Group(), materials=new Map<string,T.MeshStandardMaterial>(), geometries=new Set<T.BufferGeometry>();
   const animated: ((time:number,dt:number)=>void)[]=[];
   const targets: {key:string; point:T.Vector3}[]=[];
@@ -65,10 +65,6 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       p.rotation.y=greeting<1.6?-.15:.05*Math.sin(beat*Math.PI*.5);
     });
     return {p,arm,other};
-  }
-  function lantern(parent:T.Object3D,x:number,y:number,z:number) {
-    cyl(parent,'#f0c77c',x,y,z,.17,.38);cyl(parent,colors.wood,x,y+.23,z,.14,.08);cyl(parent,colors.wood,x,y-.23,z,.14,.08);
-    for(const offset of [-.1,0,.1]) cyl(parent,'#d9a76c',x,y+offset,z,.175,.018);
   }
   function nameSign(parent:T.Object3D,label:string,x:number,y:number,z:number,width:number,height:number) {
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
@@ -266,13 +262,21 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
       dish.rotation.y=t*.35;
     });
   }
-  function energy(parent:T.Object3D) {
-    cyl(parent,colors.stone,0,.2,0,2,.4);cyl(parent,colors.roof,0,.52,0,1.65,.25);
-    cyl(parent,colors.cream,0,1.25,0,1.05,1.25);ball(parent,'#99bdbc',0,2.15,0,.83);
-    const ring=group(parent,0,2.15,0,true);
-    const geometry=new T.TorusGeometry(1.22,.07,6,40);geometries.add(geometry);const mesh=new T.Mesh(geometry,material(colors.gold));ring.add(mesh);
-    ring.rotation.x=.8;animated.push(t=>{ring.rotation.y=t*.2;});
-    for(const x of [-1.5,1.5]) {cyl(parent,colors.roof,x,1,0,.25,1.4);ball(parent,colors.gold,x,1.85,0,.2);}
+  function synchronizer(parent:T.Object3D) {
+    if(!sync)throw new Error('Synchronizer model must load before assembly');
+    const building=group(parent,0,.03,.50,true),asset=cloneBuilding(sync);
+    building.scale.setScalar(.80);building.add(asset);
+    const orbit=namedPart(asset,'Sync_Orbit'),dish=namedPart(asset,'Sync_Dish_Left'),right=namedPart(asset,'Sync_Dish_Right'),gimbal=namedPart(asset,'Sync_Gimbal'),halo=namedPart(asset,'Sync_Halo');
+    if(!orbit||!dish)throw new Error('Synchronizer rig missing');
+    const signals=new Set<T.MeshStandardMaterial>();
+    asset.traverse(o=>{if(o instanceof T.Mesh&&o.material instanceof T.MeshStandardMaterial&&(o.material.name.includes('_Amber')||o.material.name.includes('_SignalBlue')))signals.add(o.material);});
+    animated.push(t=>{
+      orbit.rotation.y=t*.16;dish.rotation.y=Math.sin(t*.35)*.16;
+      if(right)right.rotation.y=-Math.sin(t*.35+.6)*.16;
+      if(gimbal)gimbal.rotation.y=-t*.11;
+      if(halo)halo.rotation.y=t*.07;
+      signals.forEach(m=>{m.emissiveIntensity=.18+Math.sin(t*.8)*.05;});
+    });
   }
 
   buildField({root,box,cyl,ball,tree,material,geometries});
@@ -283,15 +287,13 @@ export function buildTown(counts: GameState['facilityCounts'], town: Town, craft
     animated.push(t=>{boat.position.y=-.85+Math.sin(t*.85)*.045;boat.rotation.z=Math.sin(t*.7)*.015;});
     targets.push({key:'boat',point:boat.position.clone()});
   }
-  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,oceanMining,fusionPlant,lunaBase,freshnessFreezer,energy];
+  const builders=[craftsmanShop,conveyorShop,autoFactory,marinePlant,oceanMining,fusionPlant,lunaBase,freshnessFreezer,synchronizer];
   FACILITIES.forEach((f,index)=>{
     const [x,z]=position(index), owned=counts[f.id];
     if(owned===0 && index!==0) {tree(x,z);return;}
     const building=group(root,x,0,z);
-    if(index===8)box(building,colors.stone,0,.05,0,4.8,.1,3.8);
     builders[index](building);
     targets.push({key:f.id,point:new T.Vector3(x,1,z)});
-    if(index===8)for(let n=1;n<townTier(owned);n++) {box(building,colors.timber,2.12,.25,-1.5+n*.6,.4,.5,.4);lantern(building,-2.2,.85,-1.5+n*.65);}
   });
   const [shopX,shopZ]=position(0);
   if(town.bench) {

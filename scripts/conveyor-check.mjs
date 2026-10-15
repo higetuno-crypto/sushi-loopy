@@ -11,6 +11,7 @@ const facilities={
   fusion_sushi_converter:{name:'寿司融合発電',folder:'06-fusion-sushi-converter',file:'fusion',status:'fusion',output:'fusion-models'},
   luna_sea:{name:'LUNA_SEA',folder:'07-luna-sea',file:'luna',status:'luna',output:'luna-models'},
   freshness_freezer:{name:'鮮度凍結装置',folder:'08-freshness-freezer',file:'freezer',status:'freezer',output:'freezer-models'},
+  global_freshness_sync:{name:'世界鮮度同期装置',folder:'09-global-freshness-sync',file:'sync',status:'sync',output:'sync-models'},
   sushi_ocean_mining:{name:'SUSHI海洋採掘',folder:'05-sushi-ocean-mining',file:'ocean-mining',status:'mining',output:'mining-models'},
 };
 assert.ok(Object.hasOwn(facilities,target));
@@ -20,12 +21,14 @@ await mkdir(output,{recursive:true});
 const browser=await(process.env.SUSHI_ENGINE==='webkit'?webkit:chromium).launch({headless:true,...(process.env.SUSHI_ENGINE==='webkit'?{}:{channel:'chrome'})});
 const ids=['craftsman','conveyor_sushi','auto_sushi_machine','marine_food_plant','sushi_ocean_mining','fusion_sushi_converter','luna_sea','freshness_freezer','global_freshness_sync'];
 const errors=[],results=[];
-const funds=target==='freshness_freezer'?1e10:target==='luna_sea'?1e9:1e8;
+const sync=target==='global_freshness_sync';
+const funds=sync?1e11:target==='freshness_freezer'?1e10:target==='luna_sea'?1e9:1e8;
 try {
-  for(const [level,count] of [[1,1],[2,5],[3,10],[4,25]]) {
+  for(const [level,count] of sync?[[1,1],[2,1],[3,2],[4,2]]:[[1,1],[2,5],[3,10],[4,25]]) {
     const recordFlight=target==='luna_sea'&&level===4;
     const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'no-preference',...(recordFlight?{recordVideo:{dir:output,size:{width:390,height:844}}}:{})});
     const save={schemaVersion:5,savedAtMs:Date.now(),game:{facilityCounts:Object.fromEntries(ids.map((id,index)=>[id,id==='craftsman'?25:id===facility.id?count-1:index<ids.indexOf(target)?10:0])),sushi:funds,totalSushiEarned:funds,totalClicks:1500,runPlayTimeMs:300000,endingPhase:'playing',collapseElapsedMs:0,syncCount:0,syncElapsedMs:0,previousRun:null,unlockedAchievementIds:[],purchasedUpgradeIds:[],seenNewsIds:[]}};
+    if(sync){save.game.syncCount=Math.floor((level-1)/2);save.game.facilityCounts[target]=count-(level%2);}
     await context.addInitScript(save=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sushi-loopy.save',JSON.stringify(save));sessionStorage.setItem('seeded','yes');}},save);
     if(level===1)await context.addInitScript(()=>{
       const Native=window.IntersectionObserver,observers=new Map();
@@ -42,7 +45,11 @@ try {
     await page.goto(base);
     await page.locator('.town-viewport[data-craftsman-status=ready]').waitFor();
     if(level===1)assert.deepEqual(requests,[],'unowned facility does not download four models');
-    await page.getByRole('button',{name:facility.name+'を購入',exact:true}).click();
+    if(sync&&level%2===0)await page.getByRole('button',{name:'同期する',exact:true}).click();
+    else {
+      await page.getByRole('button',{name:facility.name+'を購入',exact:true}).click();
+      if(sync)await page.getByRole('button',{name:'あとで',exact:true}).click();
+    }
     const scene=page.locator(`.town-viewport[data-${facility.status}-level="${level}"][data-${facility.status}-status=ready]`);
     await scene.waitFor();await scene.scrollIntoViewIfNeeded();await page.waitForTimeout(1200);
     assert.equal(await scene.getAttribute('data-view'),facility.id);
@@ -100,8 +107,23 @@ try {
       await page.getByRole('button',{name:'写真モードを開く',exact:true}).click();
       await page.getByRole('button',{name:'この景色を撮る',exact:true}).click();
       await page.getByRole('link',{name:'写真を保存 ↓',exact:true}).waitFor();
+      if(sync) {
+        assert.equal(await page.locator('.town-viewport').getAttribute('data-sync-level'),'4','photo mode preserves synchronization growth');
+        await page.getByRole('button',{name:'街に戻る',exact:true}).click();
+        await page.getByRole('button',{name:facility.name+'を購入',exact:true}).click({timeout:25000});
+        await page.locator('.phase-collapse').waitFor();
+        await page.locator('.town-viewport[data-sync-level="4"][data-sync-status=ready]').waitFor();
+        await page.locator('.world-fracture.is-rendered').waitFor({timeout:20000});
+        await page.screenshot({path:`${output}/lv4-collapse.png`});
+        await page.getByRole('button',{name:'寿司を握る',exact:true}).click({timeout:40000});
+        await page.locator('.phase-playing .town-viewport[data-sync-status=absent]').waitFor();
+        await page.getByRole('button',{name:'記録と設定を開く',exact:true}).click();
+        await page.getByRole('button',{name:'前回育てた街を見る',exact:true}).click();
+        await page.locator('.town-record .town-viewport[data-sync-level="4"][data-sync-status=ready]').waitFor();
+        await page.screenshot({path:`${output}/previous-town.png`});
+      }
     }
-    results.push({level,threshold:count,purchase:true,motion:true,motionStop:true,color:true,reload:true,requests,...(flight?{flight}:{})});
+    results.push({level,threshold:count,purchase:!sync||level%2===1,...(sync?{synchronization:level%2===0,...(level===4?{ending:true,previousTown:true}:{})}:{}),motion:true,motionStop:true,color:true,reload:true,requests,...(flight?{flight}:{})});
     await context.close();
     if(recordFlight)await page.video().saveAs(`${output}/lv4-flight.webm`);
   }

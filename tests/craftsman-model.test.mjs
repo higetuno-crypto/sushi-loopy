@@ -7,12 +7,67 @@ import { createServer } from 'vite';
 const vite=await createServer({server:{middlewareMode:true,watch:null},appType:'custom',logLevel:'silent'});
 after(()=>vite.close());
 const {buildTown}=await vite.ssrLoadModule('/src/game/rendering/townModels.ts');
-const {createTown,townTier}=await vite.ssrLoadModule('/src/game/logic/town.ts');
+const {createTown,townTier,syncTownTier}=await vite.ssrLoadModule('/src/game/logic/town.ts');
 const {FACILITIES}=await vite.ssrLoadModule('/src/game/data/facilities.ts');
 const {PLOTS}=await vite.ssrLoadModule('/src/game/rendering/townField.ts');
 // Geometry checks need no real rasterizer; browser checks cover the actual painted signs.
 globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},fillText(){}})})};
 after(()=>{delete globalThis.document;});
+
+test('the final facility reaches all four models through the existing purchase and synchronization sequence',()=>{
+  for(const [owned,synced,level] of [[0,0,0],[1,0,1],[1,1,2],[2,1,3],[2,2,4],[3,3,4],[3,2,4],[25,0,4]])
+    assert.equal(syncTownTier(owned,synced),level);
+});
+
+test('synchronizer levels keep the moving orrery above the dishes and around the core on every plot',async()=>{
+  const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};
+  const craftsman=await load('public/assets/models/01-craftsman/craftsman-lv1.glb');let previousHeight=0;
+  for(const [level,count,limit] of [[1,1,5000],[2,1,7500],[3,2,11000],[4,2,15000]]) {
+    const sync=await load(`public/assets/models/09-global-freshness-sync/sync-lv${level}.glb`),source=[];
+    sync.traverse(o=>{if(o instanceof Mesh)source.push(o);});
+    assert.ok(source.reduce((n,o)=>n+o.geometry.index.count/3,0)<=limit);
+    assert.ok(source.every(o=>!o.material.transparent&&!o.material.map));
+    for(const color of ['Coral','Snow','SignalBlue'])assert.ok(source.some(o=>o.material.name.includes('_'+color)),'higher levels retain the colored planets');
+    const height=new Box3().setFromObject(sync).getSize(new Vector3()).y;
+    assert.ok(height>previousHeight*1.1,'each level has a visibly larger silhouette');previousHeight=height;
+    let disposed=false;for(const o of source)for(const resource of [o.geometry,o.material])resource.addEventListener('dispose',()=>{disposed=true;});
+    const counts=Object.fromEntries(FACILITIES.map(f=>[f.id,f.id==='global_freshness_sync'?count:f.id==='craftsman'?1:0]));
+    for(let slot=0;slot<9;slot++) {
+      const town=createTown();[town.plots[8],town.plots[slot]]=[slot,8];
+      const model=buildTown(counts,town,craftsman,1,null,null,null,null,null,null,null,sync);
+      const imported=model.root.getObjectByName(`Sync_L${level}`);assert.ok(imported,'the authored GLB replaces the generic energy tower');
+      const asset=imported.parent,[x,z]=PLOTS[slot],find=name=>{let found;asset.traverse(o=>{if(!found&&o.name.startsWith(name))found=o;});return found;};
+      const orbit=find('Sync_Orbit'),dish=find('Sync_Dish_Left'),right=find('Sync_Dish_Right'),gimbal=find('Sync_Gimbal'),halo=find('Sync_Halo');
+      assert.ok(orbit&&dish);assert.equal(!!right,level>=3);assert.equal(!!gimbal,level>=3);assert.equal(!!halo,level===4);
+      const lights=[];asset.traverse(o=>{if(o instanceof Mesh&&(o.material.name.includes('_Amber')||o.material.name.includes('_SignalBlue')))lights.push(o.material);});assert.ok(lights.length);
+      model.tick(0,0);const orbitStart=orbit.quaternion.clone(),dishStart=dish.quaternion.clone(),gimbalStart=gimbal?.quaternion.clone(),haloStart=halo?.quaternion.clone();
+      const inverse=asset.matrixWorld.clone().invert(),point=new Vector3();
+      for(let t=0;t<=60;t+=.5) {
+        model.tick(t,.5);model.root.updateMatrixWorld(true);const b=new Box3().setFromObject(asset,true);
+        assert.ok(b.min.x>=x-2.4&&b.max.x<=x+2.4&&b.min.z>=z-1.8&&b.max.z<=z+3.25,`Lv.${level}, plot ${slot}, t=${t}: ${b.min.toArray()} / ${b.max.toArray()} must stay inside the plot at ${x},${z}`);
+        assert.ok(Math.abs(b.min.y-.03)<.001,'the whole foundation is grounded');
+        for(const antenna of [dish,right].filter(Boolean))assert.ok(new Box3().setFromObject(antenna).max.y<new Box3().setFromObject(orbit).min.y,'antennas clear the revolving rail');
+        if(slot===8)for(const ring of [gimbal,halo].filter(Boolean))ring.traverse(o=>{if(o instanceof Mesh){
+          const p=o.geometry.attributes.position;
+          for(let i=0;i<p.count;i++) {
+            point.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld).applyMatrix4(inverse);
+            const radial=Math.hypot(point.x,point.z);
+            assert.ok(radial<orbit.userData.radius-.4,'the armillary rings clear every orbiting planet');
+            if(radial>.3)assert.ok(point.y>orbit.position.y+.08,'the rings clear all three revolving spokes');
+            assert.ok(point.distanceTo(ring.position)>gimbal.userData.core_radius+.1,'the core clears the surrounding rings');
+          }
+        }});
+      }
+      model.tick(2,0);assert.ok(orbit.quaternion.angleTo(orbitStart)>.1);assert.ok(dish.quaternion.angleTo(dishStart)>.01);
+      if(gimbal)assert.ok(gimbal.quaternion.angleTo(gimbalStart)>.1);
+      if(halo)assert.ok(halo.quaternion.angleTo(haloStart)>.1);
+      assert.ok(lights.every(m=>m.emissiveIntensity>.18&&m.emissiveIntensity<=.23),'signal lights pulse even when Blender adds material name suffixes');
+      model.dispose();assert.equal(disposed,false,'rebuilding the town must preserve the model cache');
+    }
+    for(const o of source){o.geometry.dispose();o.material.dispose();}
+  }
+  craftsman.traverse(o=>{if(o instanceof Mesh){o.geometry.dispose();o.material.dispose();}});
+});
 
 test('freezer levels keep the fish, tail, fans and ice crown inside their authored clearances on every plot',async()=>{
   const load=async path=>{const b=await readFile(path);return (await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'')).scene;};

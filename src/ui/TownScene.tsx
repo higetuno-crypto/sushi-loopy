@@ -9,16 +9,17 @@ export function TownSprite({index,actors=false,className='',style}:{index:number
   return <span aria-hidden="true" className={`town-sprite ${className}`} style={{backgroundImage:`url(${import.meta.env.BASE_URL}assets/town/${actors?'actors':'facilities'}.webp)`,backgroundPosition:`${index%3*50}% ${Math.floor(index/3)*50}%`,...style}}/>;
 }
 type Props={
-  counts:GameState['facilityCounts'];town:Town;
+  counts:GameState['facilityCounts'];town:Town;syncCount:number;
   moving?:FacilityId|null;frozen?:boolean;paused?:boolean;
   onMove?:(slot:number)=>void;
   onPlay?:(kind:'truck'|'cat'|'chef'|'bubble'|'boat'|'guest')=>void;
 };
 export const TownScene=memo(function TownScene(props:Props) {
-  const {counts,town,moving,frozen,paused}=props;
+  const {counts,town,syncCount,moving,frozen,paused}=props;
   const host=useRef<HTMLDivElement>(null),renderer=useRef<ReturnType<typeof createTownRenderer>|null>(null),latest=useRef(props);
   const [view,setView]=useState<TownView>('craftsman'),[failed,setFailed]=useState(false),[retry,setRetry]=useState(0);
   const currentView=useRef<TownView>('craftsman');
+  const previousSync=useRef(syncCount);
   useEffect(()=>{latest.current=props;});
   useEffect(()=>{
     let cancelled=false;
@@ -30,7 +31,7 @@ export const TownScene=memo(function TownScene(props:Props) {
           renderer.current?.react(key);latest.current.onPlay?.(key as 'cat'|'truck'|'chef'|'boat');
         }else {currentView.current=key as FacilityId;setView(key as FacilityId);renderer.current?.focus(key as FacilityId);}
       },()=>setFailed(true));
-      renderer.current.update(latest.current.counts,latest.current.town);
+      renderer.current.update(latest.current.counts,latest.current.town,latest.current.syncCount);
       renderer.current.pause(!!(latest.current.frozen||latest.current.paused));
       renderer.current.focus(latest.current.frozen?'all':currentView.current,true);
     }).catch(()=>{if(!cancelled)setFailed(true);});
@@ -42,7 +43,11 @@ export const TownScene=memo(function TownScene(props:Props) {
     node.addEventListener('town-photo',capture);
     return()=>{cancelled=true;node.removeEventListener('town-photo',capture);renderer.current?.dispose();renderer.current=null;};
   },[retry]);
-  useEffect(()=>{renderer.current?.update(counts,town);},[counts,town]);
+  useEffect(()=>{renderer.current?.update(counts,town,syncCount);},[counts,town,syncCount]);
+  useEffect(()=>{
+    if(syncCount>previousSync.current&&!frozen){currentView.current='global_freshness_sync';setView('global_freshness_sync');renderer.current?.focus('global_freshness_sync');}
+    previousSync.current=syncCount;
+  },[syncCount,frozen]);
   useEffect(()=>{renderer.current?.pause(!!(frozen||paused));},[frozen,paused]);
   useEffect(()=>{renderer.current?.focus(moving||frozen?'all':view);},[view,moving,frozen]);
   useEffect(()=>{

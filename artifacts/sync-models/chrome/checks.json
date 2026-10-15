@@ -1,0 +1,68 @@
+{
+  "base": "http://127.0.0.1:5181/",
+  "results": [
+    {
+      "level": 1,
+      "threshold": 1,
+      "purchase": true,
+      "synchronization": false,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv1.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv1.glb"
+      ]
+    },
+    {
+      "level": 2,
+      "threshold": 1,
+      "purchase": false,
+      "synchronization": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv1.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv2.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv2.glb"
+      ]
+    },
+    {
+      "level": 3,
+      "threshold": 2,
+      "purchase": true,
+      "synchronization": false,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv2.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv3.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv3.glb"
+      ]
+    },
+    {
+      "level": 4,
+      "threshold": 2,
+      "purchase": false,
+      "synchronization": true,
+      "ending": true,
+      "previousTown": true,
+      "motion": true,
+      "motionStop": true,
+      "color": true,
+      "reload": true,
+      "requests": [
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv3.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv4.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv4.glb",
+        "http://127.0.0.1:5181/assets/models/09-global-freshness-sync/sync-lv4.glb"
+      ]
+    }
+  ],
+  "errors": []
+}
