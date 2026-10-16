@@ -10,7 +10,8 @@ import { buildTown } from '../../src/game/rendering/townModels.ts';
 import { createTown } from '../../src/game/logic/town.ts';
 import { FACILITIES } from '../../src/game/data/facilities.ts';
 import { deliveryRoute } from '../../src/game/rendering/townField.ts';
-import { createScore, wavData, DURATION, IMPACT } from './score.js';
+import { createScore, wavData } from './score.js';
+import { drawFailure, failureState, DURATION, IMPACT, WORLD_DELAY, DIALOGS, CRASH, BLUE, HOLD } from './failure.js';
 
 const $=id=>document.getElementById(id);
 const canvas=$('film'), ink=canvas.getContext('2d',{alpha:false});
@@ -193,11 +194,11 @@ const cameraKeys=[
   [24.3,[5,5.5,10],[0,2,0]],
   [34,[4.4,4.5,9],[0,2,0]],
 ];
-function placeCamera(t,reduced) {
+function placeCamera(t,reduced,filmTime) {
   let i=0;while(i<cameraKeys.length-2&&t>cameraKeys[i+1][0])i++;
   const a=cameraKeys[i],b=cameraKeys[i+1],p=smooth(a[0],b[0],t);
   const eye=new T.Vector3(...a[1]).lerp(new T.Vector3(...b[1]),p),target=new T.Vector3(...a[2]).lerp(new T.Vector3(...b[2]),p);
-  const kick=Math.exp(-Math.max(0,t-IMPACT)*4)*(t>=IMPACT?1:0)*(reduced?0:.3);
+  const kick=Math.exp(-Math.max(0,filmTime-IMPACT)*4)*(filmTime>=IMPACT?1:0)*(reduced?0:.3);
   eye.x+=Math.sin(t*83)*kick;eye.y+=Math.sin(t*69)*kick;
   camera.position.copy(eye);camera.lookAt(target);
 }
@@ -208,7 +209,7 @@ function label(text,x,y,size,color='#eee8d5',align='left',font='Arial',tracking=
   let dx=x-(align==='center'?total/2:align==='right'?total:0);ink.textAlign='left';
   [...text].forEach((ch,i)=>{ink.fillText(ch,dx,y);dx+=widths[i]+tracking;});
 }
-function overlay(t) {
+function overlay(t,filmTime) {
   ink.save();ink.scale(W/1920,H/1080);
   // Quiet, fixed typography is a deliberate counterpoint to the moving world.
   ink.globalAlpha=.66*(1-smooth(21,23,t));
@@ -235,23 +236,27 @@ function overlay(t) {
   label('SUSHI LOOPY',960,1008,13,'#d9dcca','center','Arial',6);
   ink.globalAlpha=1;
   // A small amber exposure pulse; never a full-screen white flash or a strobe.
-  const pulse=t>=IMPACT?Math.exp(-(t-IMPACT)*13)*.16:0;
+  const pulse=filmTime>=IMPACT?Math.exp(-(filmTime-IMPACT)*13)*.16:0;
   if(pulse){ink.fillStyle=`rgba(255,188,105,${pulse})`;ink.fillRect(0,0,1920,1080);}
+  drawFailure(ink,filmTime);
   ink.restore();
 }
 
 function draw(t) {
   t=Math.max(0,Math.min(DURATION,Number.isFinite(t)?t:0));
+  const filmTime=t;
+  // Insert the failure sequence; keep the existing rupture and aftermath for comparison.
+  t=filmTime<IMPACT?Math.min(filmTime,12.3):filmTime-WORLD_DELAY;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches&&!capture;
-  placeCamera(t,reduced);
-  const elapsed=Math.max(0,t-IMPACT);
+  placeCamera(t,reduced,filmTime);
+  const elapsed=Math.max(0,filmTime-IMPACT);
   const physical=elapsed<.9?elapsed*1.9:elapsed<5.8?1.71+(elapsed-.9)*.36:3.474+(elapsed-5.8)*1.35;
-  fracture.uBreak.value=physical;fracture.uStress.value=smooth(9.5,11.8,t)*(1-smooth(IMPACT,IMPACT+.2,t));
+  fracture.uBreak.value=physical;fracture.uStress.value=smooth(9.5,11.8,t)*(1-smooth(IMPACT,IMPACT+.2,filmTime));
   world.visible=t<24;town.mesh.material.opacity=1-smooth(20.3,23,t);
   sea.material.opacity=1-smooth(11,15,t);sea.visible=t<15;
   hemi.intensity=2-.7*smooth(7,12,t)+smooth(24,27,t)*.5;
   sun.intensity=3.2-smooth(8,12,t)*1.1+smooth(24,27,t)*.6;
-  flash.intensity=t>=IMPACT?75*Math.exp(-elapsed*1.6):smooth(9,11.8,t)*6;
+  flash.intensity=filmTime>=IMPACT?75*Math.exp(-elapsed*1.6):smooth(9,11.8,t)*6;
   bloom.strength=.3+smooth(8,11.8,t)*.25*(1-smooth(15,19,t));
   for(let k=0;k<rings.length;k++){
     const r=rings[k],alignment=smooth(5+k*.7,11.1,t);
@@ -264,15 +269,15 @@ function draw(t) {
     const q=elapsed-i*.14;m.visible=q>0&&q<2.4;m.scale.setScalar(Math.max(.001,1+q*34));
     m.material.opacity=Math.max(0,.85*(1-q/2.4));
   }
-  dustMaterial.uniforms.uBreak.value=physical;dustMaterial.uniforms.uOpacity.value=fade(IMPACT,IMPACT+.25,20,23.5,t)*1.2;
+  dustMaterial.uniforms.uBreak.value=physical;dustMaterial.uniforms.uOpacity.value=fade(12.6,12.85,20,23.5,t)*1.2;
   sushi.visible=t>23.4;sushi.scale.setScalar(.84+smooth(24,34,t)*.06);sushi.rotation.y=-.35+smooth(24,34,t)*.23;
   grade.uniforms.uTime.value=t;
   const glitch=fade(10.3,11.3,11.8,12.1,t);
-  grade.uniforms.uAberration.value=reduced?0:glitch*.005+(t>=IMPACT?Math.exp(-elapsed*6)*.016:0);
+  grade.uniforms.uAberration.value=reduced?0:glitch*.005+(filmTime>=IMPACT?Math.exp(-elapsed*6)*.016:0);
   grade.uniforms.uFade.value=smooth(0,.75,t);
-  composer.render();ink.drawImage(renderer.domElement,0,0,W,H);overlay(t);
-  $('seek').value=String(t);$('time').value=`00:${String(Math.floor(t)).padStart(2,'0')} / 00:34`;
-  return {time:t,triangles:town.triangles,cells:town.cells,drawCalls:renderer.info.render.calls};
+  composer.render();ink.drawImage(renderer.domElement,0,0,W,H);overlay(t,filmTime);
+  $('seek').value=String(filmTime);$('time').value=`00:${String(Math.floor(filmTime)).padStart(2,'0')} / 00:${DURATION}`;
+  return {time:filmTime,...failureState(filmTime),triangles:town.triangles,cells:town.cells,drawCalls:renderer.info.render.calls};
 }
 
 let playing=false,current=0,started=0,audioContext,audioSource,audioGain,muted=false,frame=0;
@@ -312,12 +317,13 @@ try {
   if(model.delivery)model.delivery.truck.position.copy(deliveryRoute(3,0).getPointAt(.5));
   town=fractureTown(model.root);model.dispose();scoreBuffer=audio;
   window.collapseDemo={draw,duration:DURATION,ready:true,stats:{triangles:town.triangles,cells:town.cells,width:W,height:H,audio:!!scoreBuffer},
+    cues:{impact:IMPACT,crash:CRASH,blue:BLUE,hold:HOLD,dialogs:DIALOGS.length},
     audioWav:()=>{const a=wavData(scoreBuffer);let binary='';for(let i=0;i<a.length;i+=32768)binary+=String.fromCharCode(...a.subarray(i,i+32768));return btoa(binary);},
     seek:t=>{pause();current=clamp(t/DURATION)*DURATION;draw(current);},
     getState:()=>({playing,time:current,muted,hasAudio:!!audioSource})};
   draw(1.6);for(const id of ['begin','play','restart','seek'])$(id).disabled=false;
   $('begin').textContent=scoreBuffer?'音とともに再生':'映像を再生（音なし）';
-  $('status').textContent=scoreBuffer?'34秒 / オリジナル楽曲・効果音':'このブラウザーは音声生成に未対応です。音付きMP4で鑑賞できます。';
+  $('status').textContent=scoreBuffer?'42秒 / エラーカスケード版':'このブラウザーは音声生成に未対応です。音付きMP4で鑑賞できます。';
   if(!scoreBuffer){$('sound').disabled=true;$('sound').textContent='音声非対応';$('sound').setAttribute('aria-pressed','false');}
   if(!capture)loop();
 } catch(error) {

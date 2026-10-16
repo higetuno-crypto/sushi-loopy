@@ -1,7 +1,5 @@
 import { notesAtStep, BPM, midiFrequency } from '../../src/game/audio/score.ts';
-
-export const DURATION = 34;
-export const IMPACT = 12.6;
+import { DURATION, IMPACT, DIALOGS, CRASH, BLUE, HOLD, WORLD_DELAY } from './failure.js';
 
 /** The game's original 76 BPM theme, arranged for this film. No downloaded audio. */
 export async function createScore() {
@@ -58,9 +56,27 @@ export async function createScore() {
   }
   tone(8.2,35,3.6,.16,'triangle',0,music,-2);
   noise(9,2.8,.14,320,'bandpass',0,true);
-  for(let i=0;i<14;i++) { const t=10.7+i*.08; noise(t,.026,.07,1300+i*130,'bandpass',i%2?.6:-.6); }
-  // A deliberate gap before the rupture: the soundtrack, too, loses its clock.
-  master.gain.setValueAtTime(.68,11.8);master.gain.linearRampToValueAtTime(0,11.92);
+  // Every window has its own onset. Density increases; gain does not grow without bound.
+  DIALOGS.forEach((d,i)=>{
+    const pan=Math.max(-.8,Math.min(.8,(d.x+290-960)/1050));
+    const gain=i<4?.13:.18;
+    if(d.kind===0){tone(d.at,81,.22,.075,'sine',pan);tone(d.at+.09,88,.26,.05,'sine',pan);}
+    else {
+      tone(d.at,d.kind===3?75:79,.16,gain,'triangle',pan);
+      tone(d.at+.045,d.kind===3?68:73,.21,gain*.8,'sine',pan);
+      noise(d.at,.035,.026,1800,'bandpass',pan);
+    }
+  });
+  tone(11.5,32,5.8,.13,'triangle',0,master,-4);
+  noise(13,4,.09,250,'bandpass',0,true);
+  // Audio-buffer failure: a short stuck fragment, then a complete stop.
+  for(let i=0;i<18;i++) {
+    const t=CRASH+i*.06;
+    tone(t,70,.041,.045,'triangle',i%2?.15:-.15);
+    noise(t,.018,.035,1100,'bandpass');
+  }
+  noise(BLUE,.065,.12,650,'lowpass');
+  master.gain.setValueAtTime(.68,BLUE+.09);master.gain.linearRampToValueAtTime(0,HOLD);
   master.gain.setValueAtTime(0,IMPACT-.015);master.gain.linearRampToValueAtTime(.68,IMPACT);
   tone(IMPACT,37,3.9,.55,'sine',0,master,-21);
   tone(IMPACT,49,.8,.15,'triangle',0,master,-15);
@@ -68,16 +84,16 @@ export async function createScore() {
   noise(IMPACT+.17,3.8,.2,1300,'bandpass',-.4);
   noise(IMPACT+.32,3.6,.2,900,'bandpass',.4);
   for(let i=0;i<56;i++) {
-    const t=13+random()*7.5, pan=random()*1.7-.85;
+    const t=13+WORLD_DELAY+random()*7.5, pan=random()*1.7-.85;
     noise(t,.06+random()*.28,.025+random()*.06,800+random()*4500,'bandpass',pan);
     if(i%3===0)tone(t,78+Math.floor(random()*22),.22+random()*.6,.014,'sine',pan);
   }
-  for(const [i,n] of [47,54,57,61].entries())tone(14+i*.15,n,7,.055,'sine',i/3-.5);
-  noise(18,3.5,.07,420,'lowpass');
-  tone(24.4,78,3.9,.12,'sine',-.12);tone(24.4,90,1.1,.027,'sine',.12);
-  for(const [i,n] of [50,57,66,73].entries())tone(27+i*.36,n,5.4,.09,'sine',i/3-.5);
-  tone(31.3,78,2.4,.075,'sine');
-  master.gain.setValueAtTime(.68,32);master.gain.linearRampToValueAtTime(0,34);
+  for(const [i,n] of [47,54,57,61].entries())tone(14+WORLD_DELAY+i*.15,n,7,.055,'sine',i/3-.5);
+  noise(18+WORLD_DELAY,3.5,.07,420,'lowpass');
+  tone(24.4+WORLD_DELAY,78,3.9,.12,'sine',-.12);tone(24.4+WORLD_DELAY,90,1.1,.027,'sine',.12);
+  for(const [i,n] of [50,57,66,73].entries())tone(27+WORLD_DELAY+i*.36,n,5.4,.09,'sine',i/3-.5);
+  tone(31.3+WORLD_DELAY,78,2.4,.075,'sine');
+  master.gain.setValueAtTime(.68,DURATION-2);master.gain.linearRampToValueAtTime(0,DURATION);
   return ctx.startRendering();
 }
 
