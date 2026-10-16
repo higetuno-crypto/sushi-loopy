@@ -7,7 +7,7 @@ import path from 'node:path';
 
 const {chromium,webkit}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'C:/Users/higes/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const base=process.env.COLLAPSE_URL||'http://127.0.0.1:5196/demos/collapse/';
-const output=path.resolve('artifacts/collapse-motion-20261016-error-cascade');
+const output=path.resolve('artifacts/collapse-motion-20261016-windows-storm');
 await mkdir(output,{recursive:true});
 const video=process.argv.includes('--render');
 const audioOnly=process.argv.includes('--audio');
@@ -20,6 +20,8 @@ let ffmpeg;
 try {
   const context=await browser.newContext({viewport:{width:1440,height:1100},deviceScaleFactor:1,reducedMotion:'no-preference'});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  let referenceAudioLoaded=false;
+  page.on('response',r=>{if(r.url().endsWith('/audio/windows-error-reference.wav')&&r.ok())referenceAudioLoaded=true;});
   page.on('console',m=>{if(m.type()==='error'){errors.push(m.text());console.error(m.text());}});
   await page.goto(`${base}?render`);
   console.log('Page loaded');
@@ -28,6 +30,7 @@ try {
   const stats=await page.evaluate(()=>window.collapseDemo.stats);
   const {duration,cues}=await page.evaluate(()=>({duration:window.collapseDemo.duration,cues:window.collapseDemo.cues}));
   console.log('Scene ready',stats);
+  if(stats.audio)assert.ok(referenceAudioLoaded,'the requested reference recording is loaded');
   assert.ok(stats.triangles>10000,'real town geometry is present');
   assert.ok(stats.cells>100,'fracture has distinct spatial pieces');
   const samples=[];
@@ -43,7 +46,10 @@ try {
     samples.push({time:t,lit:frame.lit,phase:frame.state.phase,dialogs:frame.state.dialogs});
   }
   assert.equal(samples.find(s=>s.time===7.5).dialogs,1,'the first warning is readable alone');
-  assert.ok(samples.find(s=>s.time===15.9).dialogs>50,'the cascade fills the screen');
+  assert.ok(samples.find(s=>s.time===15.9).dialogs>450,'the storm accumulates hundreds of windows');
+  assert.ok(cues.dialogs>=600,'the storm contains at least 600 windows');
+  const lateRate=await page.evaluate(()=>window.collapseDemo.draw(16.8).dialogs-window.collapseDemo.draw(15.8).dialogs);
+  assert.ok(lateRate>=100,'the final second adds more than 100 windows');
   assert.deepEqual(samples.filter(s=>s.time>=17.7&&s.time<=21.4).map(s=>s.phase),['crash','blue','hold','hold','collapse']);
   assert.ok(cues.impact-cues.hold>=1.8,'there is a deliberate hold before rupture');
   assert.ok(cues.hold-cues.blue<.3,'blue screen is one short interruption');
@@ -84,7 +90,7 @@ try {
     let peak=0;for(let i=44;i<bytes.length;i+=2)peak=Math.max(peak,Math.abs(bytes.readInt16LE(i))/32768);
     const audioStats={duration:(bytes.length-44)/4/rate,channels:bytes.readUInt16LE(22),rate,peak,musicRms:rms(2,5),errorRms:rms(13,16),silenceRms:rms(cues.hold+.1,cues.impact-.1),impactRms:rms(cues.impact,cues.impact+1),endingRms:rms(35,39)};
     assert.equal(audioStats.duration,duration);assert.equal(audioStats.channels,2);assert.ok(peak<.98,'mix has peak headroom');
-    assert.ok(audioStats.errorRms>audioStats.musicRms*.8,'the error cascade is audible');
+    assert.ok(audioStats.errorRms>audioStats.musicRms*1.5,'the reference error storm dominates the music');
     assert.ok(audioStats.silenceRms<.00001,'the pre-impact silence is real');
     assert.ok(audioStats.musicRms>.02&&audioStats.endingRms>.015,'quiet sections are audible');
     assert.ok(audioStats.impactRms/audioStats.musicRms<6,'impact retains dynamics without an excessive level jump');
@@ -125,7 +131,7 @@ try {
   assert.equal(await mobile.evaluate(()=>window.collapseDemo.getState().time),15.9,'scrub selects the requested moment');
   await mobile.screenshot({path:path.join(output,`${engine}-mobile.png`)});
   assert.deepEqual(errors,[]);
-  const result={engine,stats,cues,duration,samples,seekDiff,checks:{shaders:true,deterministicSeek:true,frozenHold:true,failureSequence:true,noRealPopups:true,noSaveWrites:true,noAutoplay:true,mobileLayout:true,pause:true,mute:stats.audio?'passed':'audio unavailable',scrub:true},errors};
+  const result={engine,stats,cues,duration,samples,seekDiff,lateWindowsPerSecond:lateRate,referenceAudioLoaded,checks:{shaders:true,deterministicSeek:true,frozenHold:true,failureSequence:true,noRealPopups:true,noSaveWrites:true,noAutoplay:true,mobileLayout:true,pause:true,mute:stats.audio?'passed':'audio unavailable',scrub:true},errors};
   await writeFile(path.join(output,`${engine}-checks.json`),JSON.stringify(result,null,2));
   console.log(JSON.stringify(result));
   await player.close();

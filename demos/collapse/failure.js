@@ -5,17 +5,22 @@ export const HOLD = 18.68;
 export const IMPACT = 20.6;
 export const DURATION = 42;
 export const WORLD_DELAY = 8;
+export const STORM = 10.4;
 const random=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);};
 export const DIALOGS = [
   {at:7.15,kind:0,x:900,y:245},
   {at:8.85,kind:1,x:650,y:390},
   {at:9.6,kind:2,x:1020,y:510},
   {at:10.35,kind:3,x:380,y:270},
-  ...Array.from({length:72},(_,i)=>({at:11+5.8*(i/71)**.72,kind:1+i%5,
-    x:30+random(i+42)*1260,y:75+random(i+96)*720})),
+  ...Array.from({length:600},(_,i)=>{
+    const group=Math.floor(i/12),step=i%12;
+    return {at:STORM+6.65*(i/599)**.8,kind:1+group%5,scale:.5+random(group+281)*.6,
+      x:-80+random(group+42)*1660+step*14,y:-45+random(group+96)*880+step*12};
+  }),
   {at:15.65,kind:3,x:635,y:415},
   {at:16.95,kind:3,x:600,y:370},
 ].sort((a,b)=>a.at-b.at);
+const dialogSprites=[];
 const messages = [
   ['鮮度同期サービス','メモリを参照しました。','鮮度同期を続行します。'],
   ['SushiLoopy.exe — アプリケーション エラー','メモリを参照できませんでした。','0x00000001 のメモリにアクセスできません。'],
@@ -49,6 +54,16 @@ export function drawFailure(ctx,t) {
     ctx.fillStyle='#f3f3ee';ctx.strokeStyle='#17252b';ctx.lineWidth=2;ctx.fill();ctx.stroke();
   }
   function dialog(d,index) {
+    // Cache the six window designs: hundreds of stacked windows stay cheap to replay or seek.
+    const scale=d.scale??1;
+    if(index>=0) {
+      if(!dialogSprites[d.kind]) {
+        const sprite=document.createElement('canvas');sprite.width=(d.kind===3?650:580)+48;sprite.height=252;
+        const screen=ctx;ctx=sprite.getContext('2d');ctx.textBaseline='alphabetic';
+        dialog({kind:d.kind,x:24,y:16},-1);ctx=screen;dialogSprites[d.kind]=sprite;
+      }
+      const sprite=dialogSprites[d.kind];ctx.drawImage(sprite,Math.round(d.x)-24*scale,Math.round(d.y)-16*scale,sprite.width*scale,sprite.height*scale);return;
+    }
     const x=Math.round(d.x),y=Math.round(d.y),w=d.kind===3?650:580,h=204;
     const [title,body,detail]=messages[d.kind];
     ctx.shadowColor='#00000085';ctx.shadowBlur=20;ctx.shadowOffsetY=8;
@@ -62,7 +77,7 @@ export function drawFailure(ctx,t) {
     ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill();
     ctx.textAlign='center';text(d.kind===0?'i':d.kind===3?'!':'×',cx,cy+8,28,'#fff');ctx.textAlign='left';
     text(body,x+78,y+83,d.kind===3?24:22);text(detail,x+78,y+117,14,'#58616a');
-    if(index>3)text(`0x${(0x0000ffff+index*4096).toString(16).padStart(8,'0')}`,x+18,y+181,12,'#7a8389');
+    if(d.kind!==0)text(`0x${(0x0000ffff+d.kind*4096).toString(16).padStart(8,'0')}`,x+18,y+181,12,'#7a8389');
     if(d.kind===3){button('ブロック',x+w-284,y+h-56,124,true);button('許可',x+w-144,y+h-56,124);}
     else button(d.kind===4?'再試行':'OK',x+w-142,y+h-56,120,d.kind===0);
   }
@@ -73,7 +88,6 @@ export function drawFailure(ctx,t) {
       if(i===0&&t>=8.6)continue;
       dialog(DIALOGS[i],i);
     }
-    if(t>15.65&&t<16.95)dialog({kind:3,x:635,y:415},count);
     if(t<8.6) {
       const p=Math.max(0,Math.min(1,(t-7.75)/.48)),e=p*p*(3-2*p);
       cursor(1560+(1360-1560)*e,780+(412-780)*e);

@@ -1,11 +1,14 @@
 import { notesAtStep, BPM, midiFrequency } from '../../src/game/audio/score.ts';
-import { DURATION, IMPACT, DIALOGS, CRASH, BLUE, HOLD, WORLD_DELAY } from './failure.js';
+import { DURATION, IMPACT, DIALOGS, CRASH, BLUE, HOLD, WORLD_DELAY, STORM } from './failure.js';
 
-/** The game's original 76 BPM theme, arranged for this film. No downloaded audio. */
+/** Original 76 BPM theme, with the error recording specifically requested by the user. */
 export async function createScore() {
   const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   if(!Offline)return null;
   const ctx = new Offline(2, 44100 * DURATION, 44100);
+  const response=await fetch(new URL('./audio/windows-error-reference.wav',import.meta.url));
+  if(!response.ok)throw new Error('参照動画のエラー音を読み込めませんでした');
+  const reference=await ctx.decodeAudioData(await response.arrayBuffer());
   const master = ctx.createGain(); master.gain.value = .68;
   const compressor = ctx.createDynamicsCompressor();
   compressor.threshold.value = -13; compressor.knee.value = 15;
@@ -43,6 +46,13 @@ export async function createScore() {
     stereo.pan.value=pan; src.connect(filter).connect(env).connect(stereo).connect(master);
     src.start(t,random()*2);src.stop(t+duration+.02);
   }
+  function sample(t,offset,duration,gain,pan=0) {
+    const src=ctx.createBufferSource(),env=ctx.createGain(),stereo=ctx.createStereoPanner();
+    src.buffer=reference;stereo.pan.value=pan;
+    env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(gain,t+.002);
+    env.gain.setValueAtTime(gain,t+duration-.006);env.gain.linearRampToValueAtTime(0,t+duration);
+    src.connect(env).connect(stereo).connect(master);src.start(t,offset,duration);
+  }
 
   const step=60/BPM/2;
   for(let n=0;n*step<11.3;n++) {
@@ -56,24 +66,18 @@ export async function createScore() {
   }
   tone(8.2,35,3.6,.16,'triangle',0,music,-2);
   noise(9,2.8,.14,320,'bandpass',0,true);
-  // Every window has its own onset. Density increases; gain does not grow without bound.
-  DIALOGS.forEach((d,i)=>{
-    const pan=Math.max(-.8,Math.min(.8,(d.x+290-960)/1050));
-    const gain=i<4?.13:.18;
-    if(d.kind===0){tone(d.at,81,.22,.075,'sine',pan);tone(d.at+.09,88,.26,.05,'sine',pan);}
-    else {
-      tone(d.at,d.kind===3?75:79,.16,gain,'triangle',pan);
-      tone(d.at+.045,d.kind===3?68:73,.21,gain*.8,'sine',pan);
-      noise(d.at,.035,.026,1800,'bandpass',pan);
-    }
-  });
+  // Keep the reference's timbre and pitch. Its dense overlap is already in the recording.
+  for(const d of DIALOGS.filter(d=>d.at<STORM))sample(d.at,.205,.22,1.3,(d.x-660)/1050);
+  const storm=ctx.createBufferSource(),stormGain=ctx.createGain();storm.buffer=reference;
+  storm.loop=true;storm.loopStart=.43;storm.loopEnd=2.85;
+  stormGain.gain.setValueAtTime(.28,STORM);stormGain.gain.linearRampToValueAtTime(.5,CRASH);
+  storm.connect(stormGain).connect(master);storm.start(STORM,.43);storm.stop(CRASH);
   tone(11.5,32,5.8,.13,'triangle',0,master,-4);
   noise(13,4,.09,250,'bandpass',0,true);
   // Audio-buffer failure: a short stuck fragment, then a complete stop.
   for(let i=0;i<18;i++) {
     const t=CRASH+i*.06;
-    tone(t,70,.041,.045,'triangle',i%2?.15:-.15);
-    noise(t,.018,.035,1100,'bandpass');
+    sample(t,.65,.055,.22,i%2?.15:-.15);
   }
   noise(BLUE,.065,.12,650,'lowpass');
   master.gain.setValueAtTime(.68,BLUE+.09);master.gain.linearRampToValueAtTime(0,HOLD);

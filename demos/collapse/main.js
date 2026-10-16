@@ -242,9 +242,14 @@ function overlay(t,filmTime) {
   ink.restore();
 }
 
+let heldPixels;
 function draw(t) {
   t=Math.max(0,Math.min(DURATION,Number.isFinite(t)?t:0));
   const filmTime=t;
+  const state={time:filmTime,...failureState(filmTime),triangles:town.triangles,cells:town.cells,drawCalls:0};
+  $('seek').value=String(filmTime);$('time').value=`00:${String(Math.floor(filmTime)).padStart(2,'0')} / 00:${DURATION}`;
+  // Hold the actual pixels, so GPU readback rounding cannot animate a frozen frame.
+  if(state.phase==='hold'&&heldPixels){ink.putImageData(heldPixels,0,0);return state;}
   // Insert the failure sequence; keep the existing rupture and aftermath for comparison.
   t=filmTime<IMPACT?Math.min(filmTime,12.3):filmTime-WORLD_DELAY;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches&&!capture;
@@ -276,8 +281,8 @@ function draw(t) {
   grade.uniforms.uAberration.value=reduced?0:glitch*.005+(filmTime>=IMPACT?Math.exp(-elapsed*6)*.016:0);
   grade.uniforms.uFade.value=smooth(0,.75,t);
   composer.render();ink.drawImage(renderer.domElement,0,0,W,H);overlay(t,filmTime);
-  $('seek').value=String(filmTime);$('time').value=`00:${String(Math.floor(filmTime)).padStart(2,'0')} / 00:${DURATION}`;
-  return {time:filmTime,...failureState(filmTime),triangles:town.triangles,cells:town.cells,drawCalls:renderer.info.render.calls};
+  if(state.phase==='hold')heldPixels=ink.getImageData(0,0,W,H);
+  return {...state,drawCalls:renderer.info.render.calls};
 }
 
 let playing=false,current=0,started=0,audioContext,audioSource,audioGain,muted=false,frame=0;
@@ -323,7 +328,7 @@ try {
     getState:()=>({playing,time:current,muted,hasAudio:!!audioSource})};
   draw(1.6);for(const id of ['begin','play','restart','seek'])$(id).disabled=false;
   $('begin').textContent=scoreBuffer?'音とともに再生':'映像を再生（音なし）';
-  $('status').textContent=scoreBuffer?'42秒 / エラーカスケード版':'このブラウザーは音声生成に未対応です。音付きMP4で鑑賞できます。';
+  $('status').textContent=scoreBuffer?'42秒 / 崩壊演出・第3版':'このブラウザーは音声生成に未対応です。音付きMP4で鑑賞できます。';
   if(!scoreBuffer){$('sound').disabled=true;$('sound').textContent='音声非対応';$('sound').setAttribute('aria-pressed','false');}
   if(!capture)loop();
 } catch(error) {
