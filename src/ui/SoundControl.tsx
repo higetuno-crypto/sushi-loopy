@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { bindAudioVisibility, getMusicLayers, setAudioEnabled, setAudioVolume } from '../game/audio/engine';
 import { useGameStore } from '../game/state/store';
 
@@ -17,7 +18,7 @@ export function SoundControl() {
     catch { setError('音を再生できませんでした。もう一度お試しください。'); await setAudioEnabled(false).catch(() => undefined); setOn(false); }
     finally { setBusy(false); }
   };
-  return <div className="sound-control">
+  const controls = <div className="sound-control">
     <button className={on ? 'sound-on' : ''} aria-pressed={on} disabled={busy} onClick={toggle} aria-label={on ? '音を消す' : '音をつける'}>
       <span aria-hidden="true">{on ? '♫' : '♪'}</span> {on ? '音楽 ON' : '音をつける'}
     </button>
@@ -25,4 +26,7 @@ export function SoundControl() {
     <small>{phase === 'playing' ? <>お店と育つ音楽 <span>{'●'.repeat(layers)}{'○'.repeat(5-layers)}</span></> : silent ? '静かなカウンター' : 'お店と育つ音楽'}</small>
     {error && <small role="alert">{error}</small>}
   </div>;
+  return phase === 'collapse'
+    ? createPortal(<div className="collapse-sound-control" data-preserve-ui>{controls}</div>, document.body)
+    : controls;
 }

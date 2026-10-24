@@ -1,8 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../game/state/store';
-import { anomalyLevel, canFinishFirstRun, ERROR_AT_MS } from '../game/logic/loop';
+import { anomalyLevel, canFinishFirstRun, ERROR_AT_MS, FRACTURE_AT_MS } from '../game/logic/loop';
 import { ASSETS } from '../game/data/presentation';
 import { playTap } from '../game/audio/engine';
+import { drawSystemFailure } from '../game/rendering/systemFailure';
+
+function SystemFailure() {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const node = canvas.current!, ink = node.getContext('2d');
+    if (!ink) return;
+    let frame = 0, previous = -1, updatedAt = performance.now();
+    const render = (now: number) => {
+      if (!document.hidden) {
+        const elapsed = useGameStore.getState().collapseElapsedMs;
+        if (elapsed !== previous) { previous = elapsed; updatedAt = now; }
+        const ms = elapsed + Math.min(now - updatedAt, 250);
+        const ratio = Math.min(devicePixelRatio, 1.5);
+        if (node.width !== Math.round(innerWidth * ratio) || node.height !== Math.round(innerHeight * ratio)) {
+          node.width = Math.round(innerWidth * ratio); node.height = Math.round(innerHeight * ratio);
+        }
+        ink.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const motion = document.documentElement.dataset.motion;
+        const reduced = motion === 'off' || (motion !== 'on' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        const state = drawSystemFailure(ink, ms, innerWidth, innerHeight, reduced);
+        node.dataset.phase = state.phase; node.dataset.dialogs = String(state.dialogs);
+        node.dataset.reduced = String(reduced);
+        if (ms >= FRACTURE_AT_MS) return;
+      }
+      frame = requestAnimationFrame(render);
+    };
+    frame = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return <canvas ref={canvas} className="system-failure" data-world-overlay aria-hidden="true" />;
+}
 
 export function WorldDamage() {
   const level=useGameStore(anomalyLevel);
@@ -38,8 +70,9 @@ export function WorldDamage() {
   },[failing]);
   useEffect(()=>{if(ready)lastButton.current?.focus({preventScroll:true});},[ready]);
   return <>
+    {collapse && <SystemFailure/>}
     {level>=2 && <div className={`signal-tears tears-${level}`} data-world-overlay aria-hidden="true"><i/><i/><i/></div>}
-    {failing && !ready && !rendered && <div className="sync-fault" data-world-overlay role="status"><code>SYNC_ERR / 0x0003<br/>同一時刻に複数の応答<br/>再接続… 再接続… 再接続…</code></div>}
+    {collapse && !ready && <span className="town-sr-value" data-world-overlay role="status">同期できません。メモリを参照できませんでした。</span>}
     {failing && <div ref={host} className={`world-fracture ${rendered?'is-rendered':''} ${fallback?'fracture-fallback':''}`} data-world-overlay aria-hidden="true" />}
     {collapse && ready && <div className="last-counter" data-world-overlay>
       <button ref={lastButton} className="surviving-sushi" aria-label="寿司を握る" onClick={()=>{finish();playTap();}}><img src={ASSETS.sushiSmall} alt=""/><span>握る</span></button>

@@ -48,6 +48,34 @@ const { bootstrapGame } = await load('runtime/bootstrap');
 const oldSave = (game = {}) => ({ schemaVersion: 1, savedAtMs: 1000, game: { sushi: 20, facilityCounts: initial().facilityCounts, runPlayTimeMs: 1200, ...game } });
 const currentSave = () => ({ ...snapshot(store.getState()), savedAtMs: 1000 });
 const encode = data => SAVE_CODE_PREFIX + Buffer.from(JSON.stringify(data)).toString('base64');
+
+test('system errors build before the existing fracture, with neutral copy and a silent hold', async () => {
+  const { ERROR_DIALOGS, ERROR_MESSAGES, systemFailureState } = await load('rendering/systemFailure');
+  const { ERROR_HOLD_AT_MS, FRACTURE_AT_MS } = await load('logic/loop');
+  assert.equal(systemFailureState(0).phase, 'normal');
+  assert.equal(systemFailureState(900).dialogs, 1);
+  assert.equal(systemFailureState(6700).dialogs, 606);
+  assert.ok(systemFailureState(6500).dialogs - systemFailureState(5500).dialogs > 150);
+  assert.equal(systemFailureState(7000).phase, 'crash');
+  assert.equal(systemFailureState(7900).phase, 'blue');
+  assert.equal(systemFailureState(9000).phase, 'hold');
+  assert.equal(systemFailureState(10000).phase, 'done');
+  assert.equal(FRACTURE_AT_MS - ERROR_HOLD_AT_MS, 1920);
+  assert.equal(ERROR_DIALOGS.length, 606);
+  assert.doesNotMatch(ERROR_MESSAGES.flat().join(' '), /Sushi|Loopy|SL|寿司|鮮度|世界/i);
+});
+
+test('frame stalls cannot skip the error sequence, while ordinary production keeps elapsed time', async () => {
+  const { runGameTick } = await load('logic/tick');
+  store.setState({ ...initial(), facilityCounts: { ...initial().facilityCounts, craftsman: 1 } });
+  runGameTick(3);
+  assert.equal(store.getState().runPlayTimeMs, 3000);
+  assert.equal(store.getState().sushi, 3);
+  store.setState({ endingPhase: 'collapse', collapseElapsedMs: 6000 });
+  runGameTick(3);
+  assert.equal(store.getState().collapseElapsedMs, 6250);
+  assert.equal(store.getState().sushi, 3);
+});
 const near = (a,b) => assert.ok(Math.abs(a-b) < 1e-7 * Math.max(1, Math.abs(b)), `${a} != ${b}`);
 beforeEach(() => { storage.clear(); intervals.clear(); doc.visibilityState = 'visible'; store.setState({ ...initial(), debugFastClick: false }); });
 

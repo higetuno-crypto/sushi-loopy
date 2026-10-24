@@ -4,6 +4,11 @@ export const COLLAPSE_DURATION_MS = 28_000;
 export const SYNC_SETTLE_MS = 18_000;
 export const ERROR_AT_MS = 6_000;
 export const FRACTURE_AT_MS = 10_000;
+export const ERROR_STORM_AT_MS = 3_000;
+export const BROWSER_CRASH_AT_MS = 6_800;
+export const BLUE_SCREEN_AT_MS = 7_850;
+export const ERROR_HOLD_AT_MS = 8_080;
+export const ERROR_DIALOG_TIMES = [800, 2_000, 2_350, 2_700];
 
 export function pendingSynchronization(state: GameState): boolean {
   return state.endingPhase === 'playing' && state.syncCount < 2

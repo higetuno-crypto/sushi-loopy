@@ -1,4 +1,4 @@
-import { anomalyLevel } from '../logic/loop';
+import { anomalyLevel, BROWSER_CRASH_AT_MS, ERROR_DIALOG_TIMES, ERROR_HOLD_AT_MS, ERROR_STORM_AT_MS } from '../logic/loop';
 import { useGameStore } from '../state/store';
 import { BPM, notesAtStep, type ScoreNote } from './score';
 import { createVoice } from './voice';
@@ -12,7 +12,62 @@ let nextTime = 0;
 let step = 0;
 let lastTapTime = 0;
 let generation = 0;
-const active = new Set<OscillatorNode>();
+const active = new Set<AudioScheduledSourceNode>();
+let errorBuffer: AudioBuffer | null = null;
+let errorLoading: Promise<void> | null = null;
+let errorLoop: AudioBufferSourceNode | null = null;
+let lastErrorMs = -1;
+let errorSnapshot = -1;
+let errorSnapshotAt = 0;
+const errorCues = [...ERROR_DIALOG_TIMES, ...Array.from({ length: 18 }, (_, i) => BROWSER_CRASH_AT_MS + i * 60)];
+
+function loadErrorAudio() {
+  if (!context || errorLoading) return;
+  const audio = context;
+  errorLoading = fetch(new URL('./windows-error-reference.wav', import.meta.url))
+    .then(response => { if (!response.ok) throw new Error('Error audio unavailable'); return response.arrayBuffer(); })
+    .then(data => audio.decodeAudioData(data))
+    .then(buffer => { errorBuffer = buffer; })
+    .catch(() => { /* The visual ending must still complete if the optional audio cannot load. */ });
+}
+
+function scheduleErrors() {
+  if (!context || !master) return;
+  const state = useGameStore.getState();
+  if (state.syncCount >= 2) loadErrorAudio();
+  if (state.endingPhase !== 'collapse') { lastErrorMs = -1; errorSnapshot = -1; return; }
+  if (errorSnapshot !== state.collapseElapsedMs) {
+    errorSnapshot = state.collapseElapsedMs; errorSnapshotAt = context.currentTime;
+  }
+  const ms = errorSnapshot + Math.min(250, (context.currentTime - errorSnapshotAt) * 1000);
+  const previous = lastErrorMs < 0 ? ms - 1 : lastErrorMs;
+  lastErrorMs = ms;
+  if (ms >= ERROR_HOLD_AT_MS) { clearNotes(); return; }
+  if (!errorBuffer) return;
+  if (ms >= ERROR_STORM_AT_MS && ms < BROWSER_CRASH_AT_MS && !errorLoop) {
+    const node = context.createBufferSource(); node.buffer = errorBuffer;
+    node.loop = true; node.loopStart = .43; node.loopEnd = 2.85;
+    const gain = context.createGain(); gain.gain.value = .8; node.connect(gain); gain.connect(master);
+    node.start(context.currentTime, .43 + ((ms - ERROR_STORM_AT_MS) / 1000) % 2.42);
+    node.stop(context.currentTime + (BROWSER_CRASH_AT_MS - ms) / 1000);
+    errorLoop = node; active.add(node);
+    node.onended = () => { active.delete(node); gain.disconnect(); if (errorLoop === node) errorLoop = null; };
+  }
+  for (const cue of errorCues) {
+    if (cue <= previous || cue > ms || ms - cue > 300) continue;
+    const node = context.createBufferSource(); node.buffer = errorBuffer;
+    const gain = context.createGain(), duration = cue < ERROR_STORM_AT_MS ? .22 : .055;
+    const end = Math.min(context.currentTime + duration, context.currentTime + (ERROR_HOLD_AT_MS - ms) / 1000);
+    if (end - context.currentTime < .006) continue;
+    gain.gain.setValueAtTime(0, context.currentTime);
+    gain.gain.linearRampToValueAtTime(cue < ERROR_STORM_AT_MS ? 2 : .65, context.currentTime + .002);
+    gain.gain.setValueAtTime(cue < ERROR_STORM_AT_MS ? 2 : .65, Math.max(context.currentTime + .002, end - .006));
+    gain.gain.linearRampToValueAtTime(0, end);
+    node.connect(gain); gain.connect(master);
+    node.start(context.currentTime, cue < ERROR_STORM_AT_MS ? .205 : .65, end - context.currentTime);
+    active.add(node); node.onended = () => { active.delete(node); gain.disconnect(); };
+  }
+}
 
 export function getMusicLayers(): number {
   const counts = useGameStore.getState().facilityCounts;
@@ -34,12 +89,13 @@ function playNote(note: ScoreNote, at: number) {
 
 function schedule() {
   if (!enabled || !context || context.state !== 'running' || document.hidden) return;
+  scheduleErrors();
   // No burst of catch-up notes after a stalled/background tab.
   if (nextTime < context.currentTime) nextTime = context.currentTime + 0.03;
   while (nextTime < context.currentTime + 0.2) {
     const state = useGameStore.getState();
     const level = anomalyLevel(state);
-    if (state.endingPhase !== 'cleared' && state.collapseElapsedMs < 10_000) {
+    if (state.endingPhase !== 'cleared' && state.collapseElapsedMs < BROWSER_CRASH_AT_MS) {
       const stuck = level >= 3 && step % 16 >= 10;
       const scoreStep = stuck ? Math.floor(step / 16) * 16 + 10 : step;
       for (const note of notesAtStep(scoreStep, getMusicLayers())) {
@@ -54,6 +110,9 @@ function schedule() {
 function clearNotes() {
   for (const node of active) { try { node.stop(); } catch { /* already ended */ } }
   active.clear();
+  errorLoop = null;
+  lastErrorMs = -1;
+  errorSnapshot = -1;
 }
 
 export async function setAudioEnabled(value: boolean): Promise<void> {

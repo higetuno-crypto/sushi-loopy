@@ -6,7 +6,7 @@ export async function createScore() {
   const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
   if(!Offline)return null;
   const ctx = new Offline(2, 44100 * DURATION, 44100);
-  const response=await fetch(new URL('./audio/windows-error-reference.wav',import.meta.url));
+  const response=await fetch(new URL('../../src/game/audio/windows-error-reference.wav',import.meta.url));
   if(!response.ok)throw new Error('参照動画のエラー音を読み込めませんでした');
   const reference=await ctx.decodeAudioData(await response.arrayBuffer());
   const master = ctx.createGain(); master.gain.value = .68;

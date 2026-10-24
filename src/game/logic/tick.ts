@@ -16,6 +16,6 @@ export function runGameTick(deltaSeconds: number): void {
   // 実際に経過した秒数ぶんSUSHIを生産する
   state.applyProduction(deltaSeconds)
 
-  // 表示中に経過したプレイ時間だけ加算する
-  state.addRunPlayTime(deltaSeconds * 1000)
+  // Snapshot/GLB work can stall the UI. Do not fast-forward unseen ending cues after that stall.
+  state.addRunPlayTime(state.endingPhase === 'collapse' ? Math.min(deltaSeconds * 1000, 250) : deltaSeconds * 1000)
 }
